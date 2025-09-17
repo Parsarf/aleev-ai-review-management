@@ -1,8 +1,18 @@
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let openai: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+  return openai
+}
 
 export interface AIResponse {
   reply: string
@@ -135,7 +145,8 @@ ${isCrisisDetected ? 'This is a crisis situation that requires immediate attenti
 
 Generate a professional, empathetic response that addresses the customer's concerns while maintaining the business's reputation.`
 
-    const completion = await openai.chat.completions.create({
+    const openaiClient = getOpenAI()
+    const completion = await openaiClient.chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: systemPrompt },
