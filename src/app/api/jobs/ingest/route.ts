@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { getAdapter } from '@/lib/platforms'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const locations = await prisma.location.findMany({
       where: {
         platformAccounts: {
-          not: null
+          not: Prisma.JsonNull
         }
       },
       include: {

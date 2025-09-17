@@ -17,10 +17,11 @@ Sentry.init({
   // Filter sensitive data
   beforeSend(event) {
     // Remove sensitive data from events
-    if (event.request?.data) {
-      delete event.request.data.password
-      delete event.request.data.token
-      delete event.request.data.secret
+    if (event.request?.data && typeof event.request.data === 'object') {
+      const data = event.request.data as Record<string, any>
+      delete data.password
+      delete data.token
+      delete data.secret
     }
     
     // Filter out health check requests

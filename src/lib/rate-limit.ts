@@ -70,6 +70,6 @@ export function rateLimit(identifier: string): { success: boolean; remaining: nu
 export function getRateLimitIdentifier(request: NextRequest): string {
   // Use IP address as identifier
   const forwarded = request.headers.get('x-forwarded-for')
-  const ip = forwarded ? forwarded.split(',')[0] : request.ip || 'unknown'
+  const ip = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || 'unknown'
   return ip
 }

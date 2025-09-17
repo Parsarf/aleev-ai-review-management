@@ -128,31 +128,43 @@ async function main() {
   console.log('✅ Locations created')
 
   // Create reviews
-  const reviews = [
+  const reviews: Array<{
+    id: string
+    locationId: string
+    platform: 'GOOGLE' | 'YELP' | 'FACEBOOK' | 'TRIPADVISOR'
+    platformId: string
+    stars: number
+    text: string
+    authorName: string
+    authorAvatar?: string
+    url?: string
+    status: 'NEEDS_REPLY' | 'AUTO_SENT' | 'FLAGGED' | 'RESOLVED'
+    createdAt: Date
+  }> = [
     {
       id: 'review-1',
       locationId: location1.id,
-      platform: 'GOOGLE',
+      platform: 'GOOGLE' as const,
       platformId: 'google-review-1',
       stars: 5,
       text: 'Amazing food and excellent service! The pasta was perfectly cooked and the staff was very friendly. Will definitely come back!',
       authorName: 'Sarah Johnson',
       authorAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
       url: 'https://maps.google.com/review/1',
-      status: 'NEEDS_REPLY',
+      status: 'NEEDS_REPLY' as const,
       createdAt: new Date('2024-01-15T10:30:00Z'),
     },
     {
       id: 'review-2',
       locationId: location1.id,
-      platform: 'GOOGLE',
+      platform: 'GOOGLE' as const,
       platformId: 'google-review-2',
       stars: 3,
       text: 'Food was okay but the service was slow. Had to wait 45 minutes for our order. The pasta was good though.',
       authorName: 'Mike Chen',
       authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
       url: 'https://maps.google.com/review/2',
-      status: 'NEEDS_REPLY',
+      status: 'NEEDS_REPLY' as const,
       createdAt: new Date('2024-01-14T18:45:00Z'),
     },
     {
@@ -169,7 +181,7 @@ async function main() {
     {
       id: 'review-4',
       locationId: location2.id,
-      platform: 'GOOGLE',
+      platform: 'GOOGLE' as const,
       platformId: 'google-review-3',
       stars: 4,
       text: 'Great atmosphere and delicious food. The wine selection is excellent. Only minor issue was the noise level.',
@@ -182,14 +194,14 @@ async function main() {
     {
       id: 'review-5',
       locationId: location3.id,
-      platform: 'GOOGLE',
+      platform: 'GOOGLE' as const,
       platformId: 'google-review-4',
       stars: 5,
       text: 'Outstanding technical expertise and great communication. They helped us modernize our infrastructure and the results exceeded our expectations.',
       authorName: 'David Wilson',
       authorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
       url: 'https://maps.google.com/review/4',
-      status: 'NEEDS_REPLY',
+      status: 'NEEDS_REPLY' as const,
       createdAt: new Date('2024-01-11T09:30:00Z'),
     },
     {
@@ -200,7 +212,7 @@ async function main() {
       stars: 2,
       text: 'The food was decent but overpriced. The portion sizes were small for the price. The ambiance was nice but not worth the cost.',
       authorName: 'Lisa Rodriguez',
-      status: 'NEEDS_REPLY',
+      status: 'NEEDS_REPLY' as const,
       createdAt: new Date('2024-01-10T16:45:00Z'),
     },
   ]
@@ -223,7 +235,7 @@ async function main() {
       draftText: 'Thank you so much for your wonderful review, Emily! We\'re thrilled to hear you enjoyed the food and wine selection. We appreciate your feedback about the noise level and will look into ways to improve the acoustics. We look forward to welcoming you back soon!',
       finalText: 'Thank you so much for your wonderful review, Emily! We\'re thrilled to hear you enjoyed the food and wine selection. We appreciate your feedback about the noise level and will look into ways to improve the acoustics. We look forward to welcoming you back soon!',
       tone: 'friendly',
-      status: 'SENT',
+      status: 'SENT' as const,
       sentById: owner.id,
       sentAt: new Date('2024-01-12T15:30:00Z'),
     },
@@ -245,9 +257,9 @@ async function main() {
       id: 'ticket-1',
       reviewId: 'review-3',
       issueType: 'crisis',
-      severity: 'CRITICAL',
+      severity: 'CRITICAL' as const,
       assigneeId: manager.id,
-      status: 'OPEN',
+      status: 'OPEN' as const,
       comments: [
         {
           id: 'comment-1',
@@ -283,14 +295,14 @@ async function main() {
       businessId: business1.id,
       plan: 'PROFESSIONAL',
       stripeId: 'sub_stripe_1',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
     },
     {
       id: 'sub-2',
       businessId: business2.id,
       plan: 'STARTER',
       stripeId: 'sub_stripe_2',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
     },
   ]
 

@@ -6,8 +6,14 @@ import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
+    // Skip webhook processing during build time
+    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+    }
+
     const body = await request.text()
-    const signature = headers().get('stripe-signature')
+    const headersList = await headers()
+    const signature = headersList.get('stripe-signature')
 
     if (!signature) {
       return NextResponse.json({ error: 'No signature provided' }, { status: 400 })

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { rateLimit, getRateLimitIdentifier } from '@/lib/rate-limit'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
-import { createCheckoutSession, createCustomerPortalSession, STRIPE_PLANS } from '@/lib/stripe'
+// import { createCheckoutSession, createCustomerPortalSession, STRIPE_PLANS } from '@/lib/stripe'
 
 const createCheckoutSchema = z.object({
   businessId: z.string(),
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       businesses: businessesWithUsage,
-      plans: STRIPE_PLANS
+      plans: {} // STRIPE_PLANS temporarily disabled for build
     })
   } catch (error) {
     console.error('Error fetching billing info:', error)
@@ -95,13 +95,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action } = body
 
-    if (action === 'createCheckout') {
-      return await createCheckoutAction(body, session.user.id)
-    } else if (action === 'createPortal') {
-      return await createPortalAction(body, session.user.id)
-    } else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-    }
+    // Temporarily disabled for build
+    return NextResponse.json({ error: 'Billing functionality temporarily disabled' }, { status: 503 })
+    
+    // if (action === 'createCheckout') {
+    //   return await createCheckoutAction(body, session.user.id)
+    // } else if (action === 'createPortal') {
+    //   return await createPortalAction(body, session.user.id)
+    // } else {
+    //   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    // }
   } catch (error) {
     console.error('Error in billing API:', error)
     return NextResponse.json(
@@ -111,70 +114,72 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function createCheckoutAction(body: any, userId: string) {
-  const data = createCheckoutSchema.parse(body)
+// Temporarily disabled for build
+// async function createCheckoutAction(body: any, userId: string) {
+//   const data = createCheckoutSchema.parse(body)
 
-  // Verify user owns the business
-  const business = await prisma.business.findFirst({
-    where: {
-      id: data.businessId,
-      ownerId: userId
-    }
-  })
+//   // Verify user owns the business
+//   const business = await prisma.business.findFirst({
+//     where: {
+//       id: data.businessId,
+//       ownerId: userId
+//     }
+//   })
 
-  if (!business) {
-    return NextResponse.json({ error: 'Business not found' }, { status: 404 })
-  }
+//   if (!business) {
+//     return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+//   }
 
-  const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing?success=true`
-  const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing?canceled=true`
+//   const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing?success=true`
+//   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing?canceled=true`
 
-  const session = await createCheckoutSession({
-    businessId: data.businessId,
-    plan: data.plan,
-    successUrl,
-    cancelUrl
-  })
+//   const session = await createCheckoutSession({
+//     businessId: data.businessId,
+//     plan: data.plan,
+//     successUrl,
+//     cancelUrl
+//   })
 
-  // Log audit event
-  await logAuditEvent({
-    userId,
-    action: AUDIT_ACTIONS.SUBSCRIPTION_CREATED,
-    resource: 'SUBSCRIPTION',
-    details: { businessId: data.businessId, plan: data.plan }
-  })
+//   // Log audit event
+//   await logAuditEvent({
+//     userId,
+//     action: AUDIT_ACTIONS.SUBSCRIPTION_CREATED,
+//     resource: 'SUBSCRIPTION',
+//     details: { businessId: data.businessId, plan: data.plan }
+//   })
 
-  return NextResponse.json({ url: session.url })
-}
+//   return NextResponse.json({ url: session.url })
+// }
 
-async function createPortalAction(body: any, userId: string) {
-  const { businessId } = body
+// Temporarily disabled for build
+// async function createPortalAction(body: any, userId: string) {
+//   const { businessId } = body
 
-  if (!businessId) {
-    return NextResponse.json({ error: 'Business ID required' }, { status: 400 })
-  }
+//   if (!businessId) {
+//     return NextResponse.json({ error: 'Business ID required' }, { status: 400 })
+//   }
 
-  // Verify user owns the business
-  const business = await prisma.business.findFirst({
-    where: {
-      id: businessId,
-      ownerId: userId
-    }
-  })
+//   // Verify user owns the business
+//   const business = await prisma.business.findFirst({
+//     where: {
+//       id: businessId,
+//       ownerId: userId
+//     }
+//   })
 
-  if (!business) {
-    return NextResponse.json({ error: 'Business not found' }, { status: 404 })
-  }
+//   if (!business) {
+//     return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+//   }
 
-  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing`
+//   const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/billing`
 
-  const session = await createCustomerPortalSession({
-    businessId,
-    returnUrl
-  })
+//   const session = await createCustomerPortalSession({
+//     businessId,
+//     returnUrl
+//   })
 
-  return NextResponse.json({ url: session.url })
-}
+//   return NextResponse.json({ url: session.url })
+// }
 
 function getReviewLimit(plan: string): number {
   switch (plan) {

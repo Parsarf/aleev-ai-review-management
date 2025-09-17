@@ -164,10 +164,9 @@ export default function InboxPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'update',
+          action: 'send',
           replyId: selectedReview?.reply?.id,
-          finalText: replyText,
-          action: 'send'
+          finalText: replyText
         })
       })
 

@@ -68,10 +68,8 @@ export async function POST(request: NextRequest) {
         // Upsert metrics record
         await prisma.metrics.upsert({
           where: {
-            businessId_date: {
-              businessId: business.id,
-              date: today
-            }
+            businessId: business.id,
+            date: today
           },
           update: {
             coverage,

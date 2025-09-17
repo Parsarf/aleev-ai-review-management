@@ -1,7 +1,25 @@
 import Stripe from 'stripe'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
+let stripeInstance: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not configured')
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-08-27.basil',
+    })
+  }
+  return stripeInstance
+}
+
+// Export a getter function instead of the instance directly
+export const stripe = new Proxy({} as Stripe, {
+  get(target, prop) {
+    const stripeInstance = getStripe()
+    return stripeInstance[prop as keyof Stripe]
+  }
 })
 
 export const STRIPE_PLANS = {
@@ -36,6 +54,7 @@ export async function createCheckoutSession({
   successUrl: string
   cancelUrl: string
 }) {
+  const stripe = getStripe()
   const priceId = STRIPE_PLANS[plan].stripePriceId
 
   const session = await stripe.checkout.sessions.create({
@@ -65,10 +84,11 @@ export async function createCustomerPortalSession({
   businessId: string
   returnUrl: string
 }) {
+  const stripe = getStripe()
   // First, find the customer by business ID
   const subscription = await stripe.subscriptions.list({
     limit: 1,
-    metadata: { businessId },
+    expand: ['data.customer'],
   })
 
   if (subscription.data.length === 0) {
@@ -86,6 +106,7 @@ export async function createCustomerPortalSession({
 }
 
 export async function handleWebhookEvent(event: Stripe.Event) {
+  const stripe = getStripe()
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session

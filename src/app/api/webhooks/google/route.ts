@@ -19,6 +19,11 @@ const googleWebhookSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Skip webhook processing during build time
+    if (process.env.NODE_ENV === 'production' && !process.env.GOOGLE_CLIENT_ID) {
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+    }
+
     const body = await request.json()
     const data = googleWebhookSchema.parse(body)
 
