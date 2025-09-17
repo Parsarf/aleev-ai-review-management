@@ -1,0 +1,441 @@
+{
+  "info": {
+    "name": "Aleev API Collection",
+    "description": "Complete API collection for Aleev Review Management Platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Sign In with Google",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/signin/google",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "signin", "google"]
+            }
+          }
+        },
+        {
+          "name": "Get Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/session",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "session"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/reviews?platforms=GOOGLE&statuses=NEEDS_REPLY&stars=4,5&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews"],
+              "query": [
+                {
+                  "key": "platforms",
+                  "value": "GOOGLE"
+                },
+                {
+                  "key": "statuses",
+                  "value": "NEEDS_REPLY"
+                },
+                {
+                  "key": "stars",
+                  "value": "4,5"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": \"location-1\",\n  \"platform\": \"GOOGLE\",\n  \"platformId\": \"google-review-test\",\n  \"stars\": 4,\n  \"text\": \"Great food and service!\",\n  \"authorName\": \"Test User\",\n  \"url\": \"https://maps.google.com/review/test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replies",
+      "item": [
+        {
+          "name": "Generate Reply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"generate\",\n  \"reviewId\": \"review-1\",\n  \"tone\": \"professional\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/replies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replies"]
+            }
+          }
+        },
+        {
+          "name": "Approve Reply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"update\",\n  \"replyId\": \"reply-1\",\n  \"finalText\": \"Thank you for your wonderful review!\",\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/replies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replies"]
+            }
+          }
+        },
+        {
+          "name": "Send Reply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"update\",\n  \"replyId\": \"reply-1\",\n  \"finalText\": \"Thank you for your wonderful review!\",\n  \"action\": \"send\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/replies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replies"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analytics?days=30&businessId=business-1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                },
+                {
+                  "key": "businessId",
+                  "value": "business-1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Update Business",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"updateBusiness\",\n  \"businessId\": \"business-1\",\n  \"name\": \"Updated Business Name\",\n  \"brandRules\": \"Updated brand rules\",\n  \"tone\": \"friendly\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Create Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"createLocation\",\n  \"businessId\": \"business-1\",\n  \"name\": \"New Location\",\n  \"address\": \"123 New Street, City, State 12345\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing",
+      "item": [
+        {
+          "name": "Get Billing Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/billing",
+              "host": ["{{base_url}}"],
+              "path": ["api", "billing"]
+            }
+          }
+        },
+        {
+          "name": "Create Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"createCheckout\",\n  \"businessId\": \"business-1\",\n  \"plan\": \"PROFESSIONAL\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/billing",
+              "host": ["{{base_url}}"],
+              "path": ["api", "billing"]
+            }
+          }
+        },
+        {
+          "name": "Create Portal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"createPortal\",\n  \"businessId\": \"business-1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/billing",
+              "host": ["{{base_url}}"],
+              "path": ["api", "billing"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Stripe Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "stripe-signature",
+                "value": "t=1234567890,v1=signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_test_webhook\",\n  \"object\": \"event\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_123\",\n      \"object\": \"checkout.session\",\n      \"metadata\": {\n        \"businessId\": \"business-1\",\n        \"plan\": \"PROFESSIONAL\"\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/stripe",
+              "host": ["{{base_url}}"],
+              "path": ["api", "webhooks", "stripe"]
+            }
+          }
+        },
+        {
+          "name": "Google Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"review.created\",\n  \"review\": {\n    \"id\": \"google-review-new\",\n    \"placeId\": \"ChIJN1t_tDeuEmsRUsoyG83frY4\",\n    \"stars\": 5,\n    \"text\": \"Amazing experience!\",\n    \"authorName\": \"New User\",\n    \"url\": \"https://maps.google.com/review/new\",\n    \"createdAt\": \"2024-01-15T10:30:00Z\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/google",
+              "host": ["{{base_url}}"],
+              "path": ["api", "webhooks", "google"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Background Jobs",
+      "item": [
+        {
+          "name": "Ingest Reviews",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cron_secret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/ingest",
+              "host": ["{{base_url}}"],
+              "path": ["api", "jobs", "ingest"]
+            }
+          }
+        },
+        {
+          "name": "Metrics Rollup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cron_secret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["api", "jobs", "metrics"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/healthz",
+              "host": ["{{base_url}}"],
+              "path": ["api", "healthz"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
