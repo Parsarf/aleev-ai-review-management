@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./prisma";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   // adapter: PrismaAdapter(prisma), // Temporarily disabled due to type compatibility issues
   providers: [
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -26,12 +27,8 @@ export const authOptions: NextAuthOptions = {
     session: async ({ session, token }) => {
       if (session?.user && token?.sub) {
         (session.user as any).id = token.sub;
-        // Fetch user role from database
-        const user = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { role: true },
-        });
-        (session.user as any).role = user?.role || "STAFF";
+        // Default role since Prisma adapter is disabled
+        (session.user as any).role = "STAFF";
       }
       return session;
     },
