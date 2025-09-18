@@ -1,5 +1,3 @@
-const { withSentryConfig } = require('@sentry/nextjs')
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@prisma/client'],
@@ -31,15 +29,20 @@ const nextConfig = {
   },
 }
 
-const sentryWebpackPluginOptions = {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  url: process.env.SENTRY_URL,
-  urlPrefix: '~/_next',
-  silent: !process.env.CI,
-  silent: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-}
+// Only use Sentry if DSN is configured
+if (process.env.SENTRY_DSN) {
+  const { withSentryConfig } = require('@sentry/nextjs')
+  
+  const sentryWebpackPluginOptions = {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    url: process.env.SENTRY_URL,
+    urlPrefix: '~/_next',
+    silent: !process.env.CI,
+  }
 
-module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions)
+  module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions)
+} else {
+  console.warn("SENTRY_DSN is not configured - Sentry webpack plugin will be disabled")
+  module.exports = nextConfig
+}

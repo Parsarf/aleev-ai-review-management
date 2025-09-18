@@ -2,10 +2,11 @@ import Stripe from "stripe";
 
 let stripeInstance: Stripe | null = null;
 
-export function getStripe(): Stripe {
+export function getStripe(): Stripe | null {
   if (!stripeInstance) {
     if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error("STRIPE_SECRET_KEY is not configured");
+      console.warn("STRIPE_SECRET_KEY is not configured - Stripe features will be disabled");
+      return null;
     }
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: "2025-08-27.basil",
@@ -18,6 +19,11 @@ export function getStripe(): Stripe {
 export const stripe = new Proxy({} as Stripe, {
   get(target, prop) {
     const stripeInstance = getStripe();
+    if (!stripeInstance) {
+      return () => {
+        throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.");
+      };
+    }
     return stripeInstance[prop as keyof Stripe];
   },
 });
@@ -66,6 +72,10 @@ export async function createCheckoutSession({
   cancelUrl: string;
 }) {
   const stripe = getStripe();
+  if (!stripe) {
+    throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.");
+  }
+  
   const priceId = STRIPE_PLANS[plan].stripePriceId;
 
   const session = await stripe.checkout.sessions.create({
@@ -96,6 +106,9 @@ export async function createCustomerPortalSession({
   returnUrl: string;
 }) {
   const stripe = getStripe();
+  if (!stripe) {
+    throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.");
+  }
   // First, find the customer by business ID
   const subscription = await stripe.subscriptions.list({
     limit: 1,

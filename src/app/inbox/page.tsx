@@ -24,8 +24,6 @@ import {
   Clock,
   Filter,
   Search,
-  Send,
-  Edit,
   Flag,
 } from "lucide-react";
 import { toast } from "sonner";

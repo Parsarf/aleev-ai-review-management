@@ -1,8 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.NODE_ENV,
+// Only initialize Sentry if DSN is provided
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
 
   // Performance Monitoring
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
@@ -38,6 +40,9 @@ Sentry.init({
       component: "web-app",
     },
   },
-});
+  });
+} else {
+  console.warn("SENTRY_DSN is not configured - error monitoring will be disabled");
+}
 
 export default Sentry;

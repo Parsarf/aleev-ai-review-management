@@ -25,7 +25,6 @@ import {
   Cell,
 } from "recharts";
 import {
-  TrendingUp,
   MessageSquare,
   Clock,
   Star,
