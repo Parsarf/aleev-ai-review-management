@@ -1,42 +1,42 @@
-'use client'
+"use client";
 
-import { useState, Suspense } from 'react'
-import { signIn, getSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2 } from 'lucide-react'
+import { useState, Suspense } from "react";
+import { signIn, getSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
 
 function SignInForm() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const from = searchParams.get('from') || '/inbox'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from") || "/inbox";
 
   const handleGoogleSignIn = async () => {
     try {
-      setLoading(true)
-      setError('')
-      
-      const result = await signIn('google', {
+      setLoading(true);
+      setError("");
+
+      const result = await signIn("google", {
         redirect: false,
-        callbackUrl: from
-      })
+        callbackUrl: from,
+      });
 
       if (result?.error) {
-        setError('Failed to sign in. Please try again.')
+        setError("Failed to sign in. Please try again.");
       } else if (result?.ok) {
-        router.push(from)
+        router.push(from);
       }
     } catch (error) {
-      console.error('Sign in error:', error)
-      setError('An unexpected error occurred. Please try again.')
+      console.error("Sign in error:", error);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -97,11 +97,11 @@ function SignInForm() {
 
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                By signing in, you agree to our{' '}
+                By signing in, you agree to our{" "}
                 <a href="#" className="text-blue-600 hover:text-blue-500">
                   Terms of Service
-                </a>{' '}
-                and{' '}
+                </a>{" "}
+                and{" "}
                 <a href="#" className="text-blue-600 hover:text-blue-500">
                   Privacy Policy
                 </a>
@@ -112,25 +112,30 @@ function SignInForm() {
 
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Need help?{' '}
-            <a href="mailto:support@aleev.com" className="text-blue-600 hover:text-blue-500">
+            Need help?{" "}
+            <a
+              href="mailto:support@aleev.com"
+              className="text-blue-600 hover:text-blue-500"
+            >
               Contact Support
             </a>
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
       <SignInForm />
     </Suspense>
-  )
+  );
 }

@@ -1,179 +1,191 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { 
-  AlertTriangle, 
-  Clock, 
-  CheckCircle, 
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  AlertTriangle,
+  Clock,
+  CheckCircle,
   XCircle,
   Plus,
   Search,
   Filter,
   MessageSquare,
   User,
-  Calendar
-} from 'lucide-react'
-import { toast } from 'sonner'
+  Calendar,
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface Ticket {
-  id: string
-  issueType: string
-  severity: string
-  status: string
-  assigneeId?: string
+  id: string;
+  issueType: string;
+  severity: string;
+  status: string;
+  assigneeId?: string;
   assignee?: {
-    name: string
-    email: string
-  }
-  dueDate?: string
-  createdAt: string
-  updatedAt: string
+    name: string;
+    email: string;
+  };
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
   review: {
-    id: string
-    stars: number
-    text: string
-    authorName?: string
-    platform: string
+    id: string;
+    stars: number;
+    text: string;
+    authorName?: string;
+    platform: string;
     location: {
-      name: string
+      name: string;
       business: {
-        name: string
-      }
-    }
-  }
+        name: string;
+      };
+    };
+  };
   comments: Array<{
-    id: string
-    text: string
-    author: string
-    createdAt: string
-  }>
+    id: string;
+    text: string;
+    author: string;
+    createdAt: string;
+  }>;
 }
 
 interface Filters {
-  status: string
-  severity: string
-  assignee: string
-  search: string
+  status: string;
+  severity: string;
+  assignee: string;
+  search: string;
 }
 
 export default function TicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({
-    status: '',
-    severity: '',
-    assignee: '',
-    search: ''
-  })
-  const [newComment, setNewComment] = useState('')
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+    status: "",
+    severity: "",
+    assignee: "",
+    search: "",
+  });
+  const [newComment, setNewComment] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchTickets()
-  }, [filters])
+    fetchTickets();
+  }, [filters]);
 
   const fetchTickets = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       // In a real app, you'd have a tickets API endpoint
       // For now, we'll simulate with empty data
-      setTickets([])
+      setTickets([]);
     } catch (error) {
-      console.error('Error fetching tickets:', error)
-      toast.error('Failed to fetch tickets')
+      console.error("Error fetching tickets:", error);
+      toast.error("Failed to fetch tickets");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'LOW':
-        return 'bg-green-100 text-green-800'
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-800'
-      case 'CRITICAL':
-        return 'bg-red-100 text-red-800'
+      case "LOW":
+        return "bg-green-100 text-green-800";
+      case "MEDIUM":
+        return "bg-yellow-100 text-yellow-800";
+      case "HIGH":
+        return "bg-orange-100 text-orange-800";
+      case "CRITICAL":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800'
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'OPEN':
-        return 'bg-blue-100 text-blue-800'
-      case 'IN_PROGRESS':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'RESOLVED':
-        return 'bg-green-100 text-green-800'
-      case 'CLOSED':
-        return 'bg-gray-100 text-gray-800'
+      case "OPEN":
+        return "bg-blue-100 text-blue-800";
+      case "IN_PROGRESS":
+        return "bg-yellow-100 text-yellow-800";
+      case "RESOLVED":
+        return "bg-green-100 text-green-800";
+      case "CLOSED":
+        return "bg-gray-100 text-gray-800";
       default:
-        return 'bg-gray-100 text-gray-800'
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'OPEN':
-        return <AlertTriangle className="h-4 w-4" />
-      case 'IN_PROGRESS':
-        return <Clock className="h-4 w-4" />
-      case 'RESOLVED':
-        return <CheckCircle className="h-4 w-4" />
-      case 'CLOSED':
-        return <XCircle className="h-4 w-4" />
+      case "OPEN":
+        return <AlertTriangle className="h-4 w-4" />;
+      case "IN_PROGRESS":
+        return <Clock className="h-4 w-4" />;
+      case "RESOLVED":
+        return <CheckCircle className="h-4 w-4" />;
+      case "CLOSED":
+        return <XCircle className="h-4 w-4" />;
       default:
-        return <AlertTriangle className="h-4 w-4" />
+        return <AlertTriangle className="h-4 w-4" />;
     }
-  }
+  };
 
   const addComment = async (ticketId: string) => {
     if (!newComment.trim()) {
-      toast.error('Please enter a comment')
-      return
+      toast.error("Please enter a comment");
+      return;
     }
 
     try {
       // In a real app, you'd call the API to add a comment
-      toast.success('Comment added successfully')
-      setNewComment('')
-      fetchTickets() // Refresh tickets
+      toast.success("Comment added successfully");
+      setNewComment("");
+      fetchTickets(); // Refresh tickets
     } catch (error) {
-      console.error('Error adding comment:', error)
-      toast.error('Failed to add comment')
+      console.error("Error adding comment:", error);
+      toast.error("Failed to add comment");
     }
-  }
+  };
 
   const updateTicketStatus = async (ticketId: string, status: string) => {
     try {
       // In a real app, you'd call the API to update the ticket status
-      toast.success('Ticket status updated')
-      fetchTickets() // Refresh tickets
+      toast.success("Ticket status updated");
+      fetchTickets(); // Refresh tickets
     } catch (error) {
-      console.error('Error updating ticket status:', error)
-      toast.error('Failed to update ticket status')
+      console.error("Error updating ticket status:", error);
+      toast.error("Failed to update ticket status");
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -226,7 +238,10 @@ export default function TicketsPage() {
                 <Textarea placeholder="Describe the issue..." rows={4} />
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={() => setIsCreateDialogOpen(false)}>
@@ -252,7 +267,9 @@ export default function TicketsPage() {
               <label className="text-sm font-medium">Status</label>
               <Select
                 value={filters.status}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, status: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
@@ -271,7 +288,9 @@ export default function TicketsPage() {
               <label className="text-sm font-medium">Severity</label>
               <Select
                 value={filters.severity}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, severity: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, severity: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All severities" />
@@ -290,7 +309,9 @@ export default function TicketsPage() {
               <label className="text-sm font-medium">Assignee</label>
               <Select
                 value={filters.assignee}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, assignee: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, assignee: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All assignees" />
@@ -310,7 +331,9 @@ export default function TicketsPage() {
                 <Input
                   placeholder="Search tickets..."
                   value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, search: e.target.value }))
+                  }
                   className="pl-10"
                 />
               </div>
@@ -337,7 +360,9 @@ export default function TicketsPage() {
                     <div
                       key={ticket.id}
                       className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
-                        selectedTicket?.id === ticket.id ? 'bg-blue-50 border-blue-200' : ''
+                        selectedTicket?.id === ticket.id
+                          ? "bg-blue-50 border-blue-200"
+                          : ""
                       }`}
                       onClick={() => setSelectedTicket(ticket)}
                     >
@@ -359,12 +384,16 @@ export default function TicketsPage() {
                       <div className="flex items-center space-x-2 text-xs text-gray-500">
                         <Badge className={getStatusColor(ticket.status)}>
                           {getStatusIcon(ticket.status)}
-                          <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                          <span className="ml-1">
+                            {ticket.status.replace("_", " ")}
+                          </span>
                         </Badge>
                         {ticket.dueDate && (
                           <>
                             <Calendar className="h-3 w-3" />
-                            <span>{new Date(ticket.dueDate).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(ticket.dueDate).toLocaleDateString()}
+                            </span>
                           </>
                         )}
                       </div>
@@ -385,18 +414,23 @@ export default function TicketsPage() {
                   <div>
                     <CardTitle className="flex items-center space-x-2">
                       <span>{selectedTicket.issueType}</span>
-                      <Badge className={getSeverityColor(selectedTicket.severity)}>
+                      <Badge
+                        className={getSeverityColor(selectedTicket.severity)}
+                      >
                         {selectedTicket.severity}
                       </Badge>
                     </CardTitle>
                     <p className="text-sm text-gray-600 mt-1">
-                      {selectedTicket.review.location.business.name} • {selectedTicket.review.location.name}
+                      {selectedTicket.review.location.business.name} •{" "}
+                      {selectedTicket.review.location.name}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge className={getStatusColor(selectedTicket.status)}>
                       {getStatusIcon(selectedTicket.status)}
-                      <span className="ml-1">{selectedTicket.status.replace('_', ' ')}</span>
+                      <span className="ml-1">
+                        {selectedTicket.status.replace("_", " ")}
+                      </span>
                     </Badge>
                   </div>
                 </div>
@@ -407,16 +441,24 @@ export default function TicketsPage() {
                   <h4 className="font-medium mb-2">Related Review</h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm font-medium">{selectedTicket.review.authorName || 'Anonymous'}</span>
-                      <Badge variant="outline">{selectedTicket.review.platform}</Badge>
+                      <span className="text-sm font-medium">
+                        {selectedTicket.review.authorName || "Anonymous"}
+                      </span>
+                      <Badge variant="outline">
+                        {selectedTicket.review.platform}
+                      </Badge>
                     </div>
-                    <p className="text-gray-800 text-sm">{selectedTicket.review.text}</p>
+                    <p className="text-gray-800 text-sm">
+                      {selectedTicket.review.text}
+                    </p>
                   </div>
                 </div>
 
                 {/* Comments */}
                 <div>
-                  <h4 className="font-medium mb-2">Comments ({selectedTicket.comments.length})</h4>
+                  <h4 className="font-medium mb-2">
+                    Comments ({selectedTicket.comments.length})
+                  </h4>
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {selectedTicket.comments.map((comment) => (
                       <div key={comment.id} className="flex space-x-3">
@@ -427,12 +469,16 @@ export default function TicketsPage() {
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">{comment.author}</span>
+                            <span className="text-sm font-medium">
+                              {comment.author}
+                            </span>
                             <span className="text-xs text-gray-500">
                               {new Date(comment.createdAt).toLocaleString()}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-800 mt-1">{comment.text}</p>
+                          <p className="text-sm text-gray-800 mt-1">
+                            {comment.text}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -450,7 +496,7 @@ export default function TicketsPage() {
                       rows={3}
                     />
                     <div className="flex justify-end">
-                      <Button 
+                      <Button
                         onClick={() => addComment(selectedTicket.id)}
                         disabled={!newComment.trim()}
                         size="sm"
@@ -465,7 +511,9 @@ export default function TicketsPage() {
                 <div className="flex space-x-2">
                   <Select
                     value={selectedTicket.status}
-                    onValueChange={(value) => updateTicketStatus(selectedTicket.id, value)}
+                    onValueChange={(value) =>
+                      updateTicketStatus(selectedTicket.id, value)
+                    }
                   >
                     <SelectTrigger className="w-40">
                       <SelectValue />
@@ -485,8 +533,12 @@ export default function TicketsPage() {
               <CardContent className="flex items-center justify-center h-64">
                 <div className="text-center">
                   <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Ticket</h3>
-                  <p className="text-gray-600">Choose a ticket from the list to view details and manage it.</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Select a Ticket
+                  </h3>
+                  <p className="text-gray-600">
+                    Choose a ticket from the list to view details and manage it.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -494,5 +546,5 @@ export default function TicketsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

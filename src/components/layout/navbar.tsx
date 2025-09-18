@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,31 +12,31 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
-import { 
-  MessageSquare, 
-  BarChart3, 
-  Ticket, 
-  Settings, 
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import {
+  MessageSquare,
+  BarChart3,
+  Ticket,
+  Settings,
   CreditCard,
   LogOut,
-  User
-} from 'lucide-react'
+  User,
+} from "lucide-react";
 
 const navigation = [
-  { name: 'Inbox', href: '/inbox', icon: MessageSquare },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Tickets', href: '/tickets', icon: Ticket },
-  { name: 'Settings', href: '/settings', icon: Settings },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
-]
+  { name: "Inbox", href: "/inbox", icon: MessageSquare },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Tickets", href: "/tickets", icon: Ticket },
+  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Billing", href: "/billing", icon: CreditCard },
+];
 
 export function Navbar() {
-  const pathname = usePathname()
-  const { data: session, status } = useSession()
+  const pathname = usePathname();
+  const { data: session, status } = useSession();
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,11 +47,11 @@ export function Navbar() {
           </div>
         </div>
       </nav>
-    )
+    );
   }
 
   if (!session) {
-    return null
+    return null;
   }
 
   return (
@@ -65,24 +65,24 @@ export function Navbar() {
               </div>
               <span className="text-xl font-bold text-gray-900">Aleev</span>
             </Link>
-            
+
             <div className="hidden md:ml-10 md:flex md:space-x-8">
               {navigation.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                       isActive
-                        ? 'border-blue-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                        ? "border-blue-500 text-gray-900"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                     }`}
                   >
                     <item.icon className="h-4 w-4 mr-2" />
                     {item.name}
                   </Link>
-                )
+                );
               })}
             </div>
           </div>
@@ -91,14 +91,22 @@ export function Navbar() {
             <Badge variant="outline" className="hidden sm:inline-flex">
               {session.user.role}
             </Badge>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-8 w-8 rounded-full"
+                >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={session.user.image || ''} alt={session.user.name || ''} />
+                    <AvatarImage
+                      src={session.user.image || ""}
+                      alt={session.user.name || ""}
+                    />
                     <AvatarFallback>
-                      {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
+                      {session.user.name?.charAt(0) ||
+                        session.user.email?.charAt(0) ||
+                        "U"}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -106,7 +114,9 @@ export function Navbar() {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{session.user.name}</p>
+                    <p className="text-sm font-medium leading-none">
+                      {session.user.name}
+                    </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {session.user.email}
                     </p>
@@ -133,5 +143,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

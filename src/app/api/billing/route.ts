@@ -1,32 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-import { rateLimit, getRateLimitIdentifier } from '@/lib/rate-limit'
-import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { rateLimit, getRateLimitIdentifier } from "@/lib/rate-limit";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 // import { createCheckoutSession, createCustomerPortalSession, STRIPE_PLANS } from '@/lib/stripe'
 
 const createCheckoutSchema = z.object({
   businessId: z.string(),
-  plan: z.enum(['STARTER', 'PROFESSIONAL', 'ENTERPRISE'])
-})
+  plan: z.enum(["STARTER", "PROFESSIONAL", "ENTERPRISE"]),
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limiting
-    const identifier = getRateLimitIdentifier(request)
-    const rateLimitResult = rateLimit(identifier)
+    const identifier = getRateLimitIdentifier(request);
+    const rateLimitResult = rateLimit(identifier);
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        { error: 'Rate limit exceeded' },
-        { status: 429 }
-      )
+        { error: "Rate limit exceeded" },
+        { status: 429 },
+      );
     }
 
     // Get user's businesses with subscriptions
@@ -39,65 +39,75 @@ export async function GET(request: NextRequest) {
             reviews: {
               where: {
                 createdAt: {
-                  gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) // Current month
-                }
-              }
-            }
-          }
-        }
-      }
-    })
+                  gte: new Date(
+                    new Date().getFullYear(),
+                    new Date().getMonth(),
+                    1,
+                  ), // Current month
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
     // Calculate usage for each business
-    const businessesWithUsage = businesses.map(business => {
-      const totalReviews = business.locations.reduce((sum, location) => sum + location.reviews.length, 0)
-      const subscription = business.subscriptions[0]
-      
+    const businessesWithUsage = businesses.map((business) => {
+      const totalReviews = business.locations.reduce(
+        (sum, location) => sum + location.reviews.length,
+        0,
+      );
+      const subscription = business.subscriptions[0];
+
       return {
         ...business,
         usage: {
           reviews: totalReviews,
-          limit: getReviewLimit(subscription?.plan || 'STARTER')
-        }
-      }
-    })
+          limit: getReviewLimit(subscription?.plan || "STARTER"),
+        },
+      };
+    });
 
     return NextResponse.json({
       businesses: businessesWithUsage,
-      plans: {} // STRIPE_PLANS temporarily disabled for build
-    })
+      plans: {}, // STRIPE_PLANS temporarily disabled for build
+    });
   } catch (error) {
-    console.error('Error fetching billing info:', error)
+    console.error("Error fetching billing info:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limiting
-    const identifier = getRateLimitIdentifier(request)
-    const rateLimitResult = rateLimit(identifier)
+    const identifier = getRateLimitIdentifier(request);
+    const rateLimitResult = rateLimit(identifier);
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        { error: 'Rate limit exceeded' },
-        { status: 429 }
-      )
+        { error: "Rate limit exceeded" },
+        { status: 429 },
+      );
     }
 
-    const body = await request.json()
-    const { action } = body
+    const body = await request.json();
+    const { action } = body;
 
     // Temporarily disabled for build
-    return NextResponse.json({ error: 'Billing functionality temporarily disabled' }, { status: 503 })
-    
+    return NextResponse.json(
+      { error: "Billing functionality temporarily disabled" },
+      { status: 503 },
+    );
+
     // if (action === 'createCheckout') {
     //   return await createCheckoutAction(body, session.user.id)
     // } else if (action === 'createPortal') {
@@ -106,11 +116,11 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     // }
   } catch (error) {
-    console.error('Error in billing API:', error)
+    console.error("Error in billing API:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -183,13 +193,13 @@ export async function POST(request: NextRequest) {
 
 function getReviewLimit(plan: string): number {
   switch (plan) {
-    case 'STARTER':
-      return 100
-    case 'PROFESSIONAL':
-      return 500
-    case 'ENTERPRISE':
-      return -1 // Unlimited
+    case "STARTER":
+      return 100;
+    case "PROFESSIONAL":
+      return 500;
+    case "ENTERPRISE":
+      return -1; // Unlimited
     default:
-      return 100
+      return 100;
   }
 }

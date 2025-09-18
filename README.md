@@ -5,6 +5,7 @@ A production-ready SaaS web application for managing online reviews with AI-powe
 ## 🚀 Features
 
 ### Core Functionality
+
 - **Unified Inbox**: Centralized review management across multiple platforms
 - **AI Reply Generation**: Intelligent, brand-consistent responses using OpenAI
 - **Crisis Detection**: Automatic flagging of critical reviews requiring immediate attention
@@ -13,12 +14,14 @@ A production-ready SaaS web application for managing online reviews with AI-powe
 - **Multi-Platform Support**: Google, Yelp, Facebook, TripAdvisor integration
 
 ### AI & Automation
+
 - **Smart Reply Generation**: Context-aware responses based on review sentiment and business rules
 - **Policy Filtering**: Automatic detection of PII, banned phrases, and content violations
 - **Tone Customization**: Professional, friendly, apologetic, or empathetic response styles
 - **Auto-send Capabilities**: Automated responses for positive reviews
 
 ### Business Management
+
 - **Multi-location Support**: Manage multiple business locations
 - **Role-based Access**: Owner, Manager, and Staff permission levels
 - **Brand Rules**: Customizable guidelines for AI responses
@@ -27,6 +30,7 @@ A production-ready SaaS web application for managing online reviews with AI-powe
 ## 🛠 Tech Stack
 
 ### Frontend
+
 - **Next.js 14** with App Router
 - **React 18** with TypeScript
 - **TailwindCSS** for styling
@@ -34,22 +38,26 @@ A production-ready SaaS web application for managing online reviews with AI-powe
 - **Recharts** for data visualization
 
 ### Backend
+
 - **Next.js API Routes** and Server Actions
 - **Node.js 18+** with TypeScript
 - **PostgreSQL** database
 - **Prisma** ORM
 
 ### Authentication & Payments
+
 - **NextAuth.js** with Google OAuth
 - **Stripe** for subscription management
 - **JWT** tokens for session management
 
 ### AI & Integrations
+
 - **OpenAI GPT-4** for reply generation
 - **Google Business Profile API** for review management
 - **Platform Adapters** for extensible integrations
 
 ### Monitoring & Quality
+
 - **Sentry** for error tracking
 - **Jest** for unit testing
 - **Playwright** for E2E testing
@@ -57,7 +65,7 @@ A production-ready SaaS web application for managing online reviews with AI-powe
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - PostgreSQL 13+
 - OpenAI API key
 - Google OAuth credentials
@@ -132,21 +140,25 @@ Visit [http://localhost:3000](http://localhost:3000) to see the application.
 ## 🧪 Testing
 
 ### Unit Tests
+
 ```bash
 npm test
 ```
 
 ### E2E Tests
+
 ```bash
 npm run test:e2e
 ```
 
 ### Type Checking
+
 ```bash
 npm run type-check
 ```
 
 ### Linting
+
 ```bash
 npm run lint
 ```
@@ -154,6 +166,7 @@ npm run lint
 ## 📊 Database Schema
 
 ### Core Entities
+
 - **Users**: Authentication and role management
 - **Businesses**: Multi-tenant business accounts
 - **Locations**: Physical business locations
@@ -164,6 +177,7 @@ npm run lint
 - **AuditLogs**: Security and compliance tracking
 
 ### Key Relationships
+
 - Users own Businesses
 - Businesses have multiple Locations
 - Locations have Reviews
@@ -173,30 +187,37 @@ npm run lint
 ## 🔌 API Endpoints
 
 ### Reviews
+
 - `GET /api/reviews` - List reviews with filtering
 - `POST /api/reviews` - Create manual review
 
 ### Replies
+
 - `POST /api/replies` - Generate or update replies
   - Action: `generate` - Create AI reply
   - Action: `update` - Approve or send reply
 
 ### Analytics
+
 - `GET /api/analytics` - Get performance metrics
 
 ### Settings
+
 - `GET /api/settings` - Get business settings
 - `POST /api/settings` - Update settings
 
 ### Billing
+
 - `GET /api/billing` - Get subscription info
 - `POST /api/billing` - Create checkout or portal session
 
 ### Webhooks
+
 - `POST /api/webhooks/stripe` - Stripe webhook handler
 - `POST /api/webhooks/google` - Google reviews webhook
 
 ### Background Jobs
+
 - `POST /api/jobs/ingest` - Review ingestion job
 - `POST /api/jobs/metrics` - Metrics rollup job
 
@@ -227,6 +248,7 @@ SENTRY_DSN="production-sentry-dsn"
 ### Background Jobs
 
 For production, set up background jobs using:
+
 - **Vercel Cron** for scheduled tasks
 - **Railway** or **Fly.io** for worker processes
 - **CronJob.org** for external scheduling

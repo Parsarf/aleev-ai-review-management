@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { SessionProvider } from 'next-auth/react'
-import { Navbar } from './navbar'
-import { Sidebar } from './sidebar'
-import { Toaster } from '@/components/ui/sonner'
+import { SessionProvider } from "next-auth/react";
+import { Navbar } from "./navbar";
+import { Sidebar } from "./sidebar";
+import { Toaster } from "@/components/ui/sonner";
 
 interface MainLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
@@ -33,5 +33,5 @@ export function MainLayout({ children }: MainLayoutProps) {
         <Toaster />
       </div>
     </SessionProvider>
-  )
+  );
 }

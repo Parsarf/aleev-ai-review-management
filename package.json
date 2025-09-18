@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "echo Skipping seed for now",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "test": "jest",
     "test:watch": "jest --watch",

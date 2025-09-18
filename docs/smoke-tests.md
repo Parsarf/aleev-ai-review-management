@@ -18,6 +18,7 @@ Run these tests in order to verify core functionality:
 **Endpoint**: `GET /api/healthz`
 
 **Expected Response**:
+
 ```json
 {
   "status": "ok",
@@ -34,6 +35,7 @@ Run these tests in order to verify core functionality:
 ### 2. Authentication Flow
 
 #### 2.1 Sign In Page Loads
+
 - Navigate to `/auth/signin`
 - Verify page loads without errors
 - Verify "Continue with Google" button is present
@@ -41,6 +43,7 @@ Run these tests in order to verify core functionality:
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 2.2 Google OAuth (if configured)
+
 - Click "Continue with Google"
 - Complete OAuth flow
 - Verify redirect to `/inbox`
@@ -52,6 +55,7 @@ Run these tests in order to verify core functionality:
 ### 3. Dashboard Access
 
 #### 3.1 Inbox Page
+
 - Navigate to `/inbox`
 - Verify page loads with filters and review list
 - Verify no JavaScript errors in console
@@ -59,6 +63,7 @@ Run these tests in order to verify core functionality:
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 3.2 Analytics Page
+
 - Navigate to `/analytics`
 - Verify charts and KPIs load
 - Verify no data errors
@@ -66,6 +71,7 @@ Run these tests in order to verify core functionality:
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 3.3 Settings Page
+
 - Navigate to `/settings`
 - Verify business information loads
 - Verify form elements are present
@@ -73,6 +79,7 @@ Run these tests in order to verify core functionality:
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 3.4 Billing Page
+
 - Navigate to `/billing`
 - Verify subscription information displays
 - Verify plan selection works
@@ -84,6 +91,7 @@ Run these tests in order to verify core functionality:
 ### 4. API Endpoints
 
 #### 4.1 Reviews API
+
 ```bash
 curl -X GET "https://your-domain.com/api/reviews" \
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -94,6 +102,7 @@ curl -X GET "https://your-domain.com/api/reviews" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 4.2 Analytics API
+
 ```bash
 curl -X GET "https://your-domain.com/api/analytics?days=30" \
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -104,6 +113,7 @@ curl -X GET "https://your-domain.com/api/analytics?days=30" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 4.3 Settings API
+
 ```bash
 curl -X GET "https://your-domain.com/api/settings" \
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -118,6 +128,7 @@ curl -X GET "https://your-domain.com/api/settings" \
 ### 5. AI Functionality
 
 #### 5.1 Reply Generation
+
 ```bash
 curl -X POST "https://your-domain.com/api/replies" \
   -H "Content-Type: application/json" \
@@ -134,7 +145,9 @@ curl -X POST "https://your-domain.com/api/replies" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 5.2 Crisis Detection
+
 Test with review containing crisis keywords:
+
 ```json
 {
   "action": "generate",
@@ -152,6 +165,7 @@ Test with review containing crisis keywords:
 ### 6. Database Operations
 
 #### 6.1 Review Creation
+
 ```bash
 curl -X POST "https://your-domain.com/api/reviews" \
   -H "Content-Type: application/json" \
@@ -171,6 +185,7 @@ curl -X POST "https://your-domain.com/api/reviews" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 6.2 Data Persistence
+
 - Create a review
 - Refresh the page
 - Verify review appears in the list
@@ -182,6 +197,7 @@ curl -X POST "https://your-domain.com/api/reviews" \
 ### 7. External Integrations
 
 #### 7.1 Stripe Integration (if configured)
+
 - Navigate to billing page
 - Click "Choose Plan"
 - Verify Stripe checkout loads
@@ -189,6 +205,7 @@ curl -X POST "https://your-domain.com/api/reviews" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 7.2 Google Integration (if configured)
+
 - Navigate to settings > integrations
 - Click "Connect" for Google
 - Verify OAuth flow initiates
@@ -200,6 +217,7 @@ curl -X POST "https://your-domain.com/api/reviews" \
 ### 8. Error Handling
 
 #### 8.1 Invalid API Requests
+
 ```bash
 curl -X POST "https://your-domain.com/api/replies" \
   -H "Content-Type: application/json" \
@@ -212,6 +230,7 @@ curl -X POST "https://your-domain.com/api/replies" \
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 8.2 Unauthorized Access
+
 ```bash
 curl -X GET "https://your-domain.com/api/reviews"
 ```
@@ -225,6 +244,7 @@ curl -X GET "https://your-domain.com/api/reviews"
 ### 9. Performance Tests
 
 #### 9.1 Page Load Times
+
 - Inbox page: < 3 seconds
 - Analytics page: < 5 seconds
 - Settings page: < 2 seconds
@@ -232,6 +252,7 @@ curl -X GET "https://your-domain.com/api/reviews"
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 9.2 API Response Times
+
 - Reviews API: < 1 second
 - Analytics API: < 2 seconds
 - Settings API: < 1 second
@@ -243,12 +264,14 @@ curl -X GET "https://your-domain.com/api/reviews"
 ### 10. Security Tests
 
 #### 10.1 Rate Limiting
+
 - Make multiple rapid API requests
 - Verify rate limiting kicks in after threshold
 
 **Status**: ✅ PASS / ❌ FAIL
 
 #### 10.2 Input Validation
+
 - Submit malformed data to API endpoints
 - Verify proper validation and error messages
 
@@ -258,18 +281,18 @@ curl -X GET "https://your-domain.com/api/reviews"
 
 ## Test Results Summary
 
-| Test Category | Status | Notes |
-|---------------|--------|-------|
-| Health Check | ⬜ | |
-| Authentication | ⬜ | |
-| Dashboard Access | ⬜ | |
-| API Endpoints | ⬜ | |
-| AI Functionality | ⬜ | |
-| Database Operations | ⬜ | |
-| External Integrations | ⬜ | |
-| Error Handling | ⬜ | |
-| Performance | ⬜ | |
-| Security | ⬜ | |
+| Test Category         | Status | Notes |
+| --------------------- | ------ | ----- |
+| Health Check          | ⬜     |       |
+| Authentication        | ⬜     |       |
+| Dashboard Access      | ⬜     |       |
+| API Endpoints         | ⬜     |       |
+| AI Functionality      | ⬜     |       |
+| Database Operations   | ⬜     |       |
+| External Integrations | ⬜     |       |
+| Error Handling        | ⬜     |       |
+| Performance           | ⬜     |       |
+| Security              | ⬜     |       |
 
 **Overall Status**: ⬜ PASS / ⬜ FAIL
 
@@ -316,6 +339,7 @@ npm run build
 ## Contact
 
 If smoke tests fail, contact the development team with:
+
 - Test results
 - Error messages
 - Browser console logs

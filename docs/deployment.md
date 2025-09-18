@@ -70,11 +70,13 @@ CRON_SECRET="your-cron-secret"
 ### 4. Database Setup
 
 #### Option A: Vercel Postgres
+
 1. Add Vercel Postgres addon
 2. Copy connection string to `DATABASE_URL`
 3. Run migrations: `vercel env pull && npm run db:deploy`
 
 #### Option B: External Database
+
 1. Set up PostgreSQL (Railway, Supabase, or AWS RDS)
 2. Update `DATABASE_URL` with connection string
 3. Run migrations: `npm run db:deploy`
@@ -211,6 +213,7 @@ sudo certbot --nginx -d your-domain.com
 ### Health Checks
 
 Monitor the health endpoint:
+
 ```bash
 curl https://your-domain.com/api/healthz
 ```
@@ -315,12 +318,14 @@ npm run db:generate
 ## Rollback Plan
 
 1. **Database Rollback**
+
    ```bash
    # Revert to previous migration
    npx prisma migrate resolve --rolled-back <migration_name>
    ```
 
 2. **Application Rollback**
+
    ```bash
    # Revert to previous Vercel deployment
    vercel rollback <deployment_url>
@@ -334,6 +339,7 @@ npm run db:generate
 ## Support
 
 For deployment issues:
+
 - Check Vercel documentation
 - Review application logs
 - Contact development team

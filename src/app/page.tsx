@@ -1,39 +1,39 @@
-'use client'
+"use client";
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { 
-  MessageSquare, 
-  BarChart3, 
-  Shield, 
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  MessageSquare,
+  BarChart3,
+  Shield,
   Zap,
   CheckCircle,
-  ArrowRight
-} from 'lucide-react'
+  ArrowRight,
+} from "lucide-react";
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.push('/inbox')
+    if (status === "authenticated") {
+      router.push("/inbox");
     }
-  }, [status, router])
+  }, [status, router]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
-  if (status === 'authenticated') {
-    return null // Will redirect to /inbox
+  if (status === "authenticated") {
+    return null; // Will redirect to /inbox
   }
 
   return (
@@ -45,18 +45,21 @@ export default function HomePage() {
             <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
               <div className="sm:text-center lg:text-left">
                 <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block xl:inline">AI-Powered</span>{' '}
-                  <span className="block text-blue-600 xl:inline">Review Management</span>
+                  <span className="block xl:inline">AI-Powered</span>{" "}
+                  <span className="block text-blue-600 xl:inline">
+                    Review Management
+                  </span>
                 </h1>
                 <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  Transform your online reputation with intelligent AI responses, 
-                  comprehensive analytics, and streamlined review management across all platforms.
+                  Transform your online reputation with intelligent AI
+                  responses, comprehensive analytics, and streamlined review
+                  management across all platforms.
                 </p>
                 <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                   <div className="rounded-md shadow">
-                    <Button 
-                      size="lg" 
-                      onClick={() => router.push('/auth/signin')}
+                    <Button
+                      size="lg"
+                      onClick={() => router.push("/auth/signin")}
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
                     >
                       Get Started
@@ -64,8 +67,8 @@ export default function HomePage() {
                     </Button>
                   </div>
                   <div className="mt-3 sm:mt-0 sm:ml-3">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="lg"
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 md:py-4 md:text-lg md:px-10"
                     >
@@ -83,12 +86,15 @@ export default function HomePage() {
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">Features</h2>
+            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">
+              Features
+            </h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Everything you need to manage reviews
             </p>
             <p className="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">
-              Powerful AI-driven tools to help you respond to reviews, track performance, and grow your business.
+              Powerful AI-driven tools to help you respond to reviews, track
+              performance, and grow your business.
             </p>
           </div>
 
@@ -98,9 +104,12 @@ export default function HomePage() {
                 <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
                   <MessageSquare className="h-6 w-6" />
                 </div>
-                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">AI-Powered Replies</p>
+                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">
+                  AI-Powered Replies
+                </p>
                 <p className="mt-2 ml-16 text-base text-gray-500">
-                  Generate intelligent, brand-consistent responses to reviews using advanced AI technology.
+                  Generate intelligent, brand-consistent responses to reviews
+                  using advanced AI technology.
                 </p>
               </div>
 
@@ -108,9 +117,12 @@ export default function HomePage() {
                 <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
                   <BarChart3 className="h-6 w-6" />
                 </div>
-                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">Analytics Dashboard</p>
+                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">
+                  Analytics Dashboard
+                </p>
                 <p className="mt-2 ml-16 text-base text-gray-500">
-                  Track review performance, sentiment trends, and response metrics with comprehensive analytics.
+                  Track review performance, sentiment trends, and response
+                  metrics with comprehensive analytics.
                 </p>
               </div>
 
@@ -118,9 +130,12 @@ export default function HomePage() {
                 <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
                   <Shield className="h-6 w-6" />
                 </div>
-                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">Crisis Management</p>
+                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">
+                  Crisis Management
+                </p>
                 <p className="mt-2 ml-16 text-base text-gray-500">
-                  Automatically detect and flag crisis situations that require immediate attention.
+                  Automatically detect and flag crisis situations that require
+                  immediate attention.
                 </p>
               </div>
 
@@ -128,9 +143,12 @@ export default function HomePage() {
                 <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
                   <Zap className="h-6 w-6" />
                 </div>
-                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">Multi-Platform Support</p>
+                <p className="ml-16 text-lg leading-6 font-medium text-gray-900">
+                  Multi-Platform Support
+                </p>
                 <p className="mt-2 ml-16 text-base text-gray-500">
-                  Manage reviews across Google, Yelp, Facebook, TripAdvisor, and more from one dashboard.
+                  Manage reviews across Google, Yelp, Facebook, TripAdvisor, and
+                  more from one dashboard.
                 </p>
               </div>
             </div>
@@ -142,7 +160,9 @@ export default function HomePage() {
       <div className="bg-gray-50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:text-center">
-            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">Pricing</h2>
+            <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">
+              Pricing
+            </h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
               Simple, transparent pricing
             </p>
@@ -153,8 +173,12 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle>Starter</CardTitle>
                 <div className="mt-4">
-                  <span className="text-4xl font-extrabold text-gray-900">$29</span>
-                  <span className="text-base font-medium text-gray-500">/month</span>
+                  <span className="text-4xl font-extrabold text-gray-900">
+                    $29
+                  </span>
+                  <span className="text-base font-medium text-gray-500">
+                    /month
+                  </span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -184,8 +208,12 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle>Professional</CardTitle>
                 <div className="mt-4">
-                  <span className="text-4xl font-extrabold text-gray-900">$79</span>
-                  <span className="text-base font-medium text-gray-500">/month</span>
+                  <span className="text-4xl font-extrabold text-gray-900">
+                    $79
+                  </span>
+                  <span className="text-base font-medium text-gray-500">
+                    /month
+                  </span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -214,8 +242,12 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle>Enterprise</CardTitle>
                 <div className="mt-4">
-                  <span className="text-4xl font-extrabold text-gray-900">$199</span>
-                  <span className="text-base font-medium text-gray-500">/month</span>
+                  <span className="text-4xl font-extrabold text-gray-900">
+                    $199
+                  </span>
+                  <span className="text-base font-medium text-gray-500">
+                    /month
+                  </span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -251,11 +283,12 @@ export default function HomePage() {
             <span className="block">Start managing your reviews today.</span>
           </h2>
           <p className="mt-4 text-lg leading-6 text-blue-200">
-            Join thousands of businesses already using Aleev to manage their online reputation.
+            Join thousands of businesses already using Aleev to manage their
+            online reputation.
           </p>
-          <Button 
+          <Button
             size="lg"
-            onClick={() => router.push('/auth/signin')}
+            onClick={() => router.push("/auth/signin")}
             className="mt-8 w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100"
           >
             Get Started Free
@@ -284,5 +317,5 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
