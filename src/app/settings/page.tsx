@@ -243,7 +243,7 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <div className="flex items-center space-x-2">
           <Select
-            value={selectedBusiness?.id || ""}
+            value={selectedBusiness?.id || undefined}
             onValueChange={(value) => {
               const business = businesses.find((b) => b.id === value);
               if (business) {

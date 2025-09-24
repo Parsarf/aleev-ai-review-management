@@ -265,11 +265,11 @@ export default function InboxPage() {
               <div>
                 <label className="text-sm font-medium">Platform</label>
                 <Select
-                  value={filters.platforms[0] || ""}
+                  value={filters.platforms[0] || undefined}
                   onValueChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      platforms: value ? [value] : [],
+                      platforms: value === "ALL_PLATFORMS" ? [] : value ? [value] : [],
                     }))
                   }
                 >
@@ -277,7 +277,7 @@ export default function InboxPage() {
                     <SelectValue placeholder="All platforms" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All platforms</SelectItem>
+                    <SelectItem value="ALL_PLATFORMS">All platforms</SelectItem>
                     <SelectItem value="GOOGLE">Google</SelectItem>
                     <SelectItem value="YELP">Yelp</SelectItem>
                     <SelectItem value="FACEBOOK">Facebook</SelectItem>
@@ -289,11 +289,11 @@ export default function InboxPage() {
               <div>
                 <label className="text-sm font-medium">Status</label>
                 <Select
-                  value={filters.statuses[0] || ""}
+                  value={filters.statuses[0] || undefined}
                   onValueChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      statuses: value ? [value] : [],
+                      statuses: value === "ALL_STATUS" ? [] : value ? [value] : [],
                     }))
                   }
                 >
@@ -301,7 +301,7 @@ export default function InboxPage() {
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="ALL_STATUS">All statuses</SelectItem>
                     <SelectItem value="NEEDS_REPLY">Needs Reply</SelectItem>
                     <SelectItem value="AUTO_SENT">Auto Sent</SelectItem>
                     <SelectItem value="FLAGGED">Flagged</SelectItem>
@@ -313,11 +313,11 @@ export default function InboxPage() {
               <div>
                 <label className="text-sm font-medium">Rating</label>
                 <Select
-                  value={filters.stars[0]?.toString() || ""}
+                  value={filters.stars[0]?.toString() || undefined}
                   onValueChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      stars: value ? [parseInt(value)] : [],
+                      stars: value === "ALL_RATINGS" ? [] : value ? [parseInt(value)] : [],
                     }))
                   }
                 >
@@ -325,7 +325,7 @@ export default function InboxPage() {
                     <SelectValue placeholder="All ratings" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All ratings</SelectItem>
+                    <SelectItem value="ALL_RATINGS">All ratings</SelectItem>
                     <SelectItem value="5">5 stars</SelectItem>
                     <SelectItem value="4">4 stars</SelectItem>
                     <SelectItem value="3">3 stars</SelectItem>

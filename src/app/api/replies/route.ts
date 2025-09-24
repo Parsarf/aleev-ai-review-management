@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (action === "generate") {
       return await generateReplyAction(body, session.user.id);
-    } else if (action === "update") {
+    } else if (action === "update" || action === "send") {
       return await updateReplyAction(body, session.user.id);
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });

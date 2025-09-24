@@ -266,16 +266,16 @@ export default function TicketsPage() {
             <div>
               <label className="text-sm font-medium">Status</label>
               <Select
-                value={filters.status}
+                value={filters.status || undefined}
                 onValueChange={(value) =>
-                  setFilters((prev) => ({ ...prev, status: value }))
+                  setFilters((prev) => ({ ...prev, status: value === "ALL_STATUS" ? "" : value }))
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="ALL_STATUS">All statuses</SelectItem>
                   <SelectItem value="OPEN">Open</SelectItem>
                   <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                   <SelectItem value="RESOLVED">Resolved</SelectItem>
@@ -287,16 +287,16 @@ export default function TicketsPage() {
             <div>
               <label className="text-sm font-medium">Severity</label>
               <Select
-                value={filters.severity}
+                value={filters.severity || undefined}
                 onValueChange={(value) =>
-                  setFilters((prev) => ({ ...prev, severity: value }))
+                  setFilters((prev) => ({ ...prev, severity: value === "ALL_SEVERITY" ? "" : value }))
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All severities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All severities</SelectItem>
+                  <SelectItem value="ALL_SEVERITY">All severities</SelectItem>
                   <SelectItem value="LOW">Low</SelectItem>
                   <SelectItem value="MEDIUM">Medium</SelectItem>
                   <SelectItem value="HIGH">High</SelectItem>
@@ -308,16 +308,16 @@ export default function TicketsPage() {
             <div>
               <label className="text-sm font-medium">Assignee</label>
               <Select
-                value={filters.assignee}
+                value={filters.assignee || undefined}
                 onValueChange={(value) =>
-                  setFilters((prev) => ({ ...prev, assignee: value }))
+                  setFilters((prev) => ({ ...prev, assignee: value === "ALL_ASSIGNEES" ? "" : value }))
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All assignees" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All assignees</SelectItem>
+                  <SelectItem value="ALL_ASSIGNEES">All assignees</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   <SelectItem value="me">Assigned to me</SelectItem>
                 </SelectContent>
