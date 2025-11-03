@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { getAdapter } from "@/lib/platforms";
-import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
+import { getAdapter, PlatformConfig } from "@/lib/platforms";
+import { logAuditEvent } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest) {
     const locations = await prisma.location.findMany({
       where: {
         platformAccounts: {
-          not: Prisma.JsonNull,
+          not: null,
         },
       },
       include: {
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     for (const location of locations) {
       try {
-        const platformAccounts = (location.platformAccounts as any) || {};
+        const platformAccounts = (location.platformAccounts as Record<string, PlatformConfig>) || {};
 
         // Process each connected platform
         for (const [platform, config] of Object.entries(platformAccounts)) {
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
                   await prisma.review.create({
                     data: {
                       locationId: location.id,
-                      platform: platform.toUpperCase() as any,
+                      platform: platform.toUpperCase() as "GOOGLE" | "YELP" | "FACEBOOK" | "TRIPADVISOR",
                       platformId: reviewData.platformId,
                       stars: reviewData.stars,
                       text: reviewData.text,

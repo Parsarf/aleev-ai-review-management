@@ -67,7 +67,7 @@ interface Filters {
 }
 
 export default function InboxPage() {
-  const { data: session } = useSession();
+  const { data: _session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,6 +84,7 @@ export default function InboxPage() {
 
   useEffect(() => {
     fetchReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const fetchReviews = async () => {

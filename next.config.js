@@ -31,6 +31,7 @@ const nextConfig = {
 
 // Only use Sentry if DSN is configured
 if (process.env.SENTRY_DSN) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { withSentryConfig } = require('@sentry/nextjs')
   
   const sentryWebpackPluginOptions = {

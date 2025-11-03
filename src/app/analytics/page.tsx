@@ -72,6 +72,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
   const fetchAnalytics = async () => {
@@ -102,18 +103,19 @@ export default function AnalyticsPage() {
     }
   };
 
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case "positive":
-        return "#10B981";
-      case "neutral":
-        return "#F59E0B";
-      case "negative":
-        return "#EF4444";
-      default:
-        return "#6B7280";
-    }
-  };
+  // Utility function for getting sentiment colors (currently unused but available for future use)
+  // const getSentimentColor = (sentiment: string) => {
+  //   switch (sentiment) {
+  //     case "positive":
+  //       return "#10B981";
+  //     case "neutral":
+  //       return "#F59E0B";
+  //     case "negative":
+  //       return "#EF4444";
+  //     default:
+  //       return "#6B7280";
+  //   }
+  // };
 
   if (loading) {
     return (

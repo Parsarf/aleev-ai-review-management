@@ -43,18 +43,17 @@ export async function POST(request: NextRequest) {
 
     for (const business of businesses) {
       try {
-        const locationIds = business.locations.map((l) => l.id);
-        const allReviews = business.locations.flatMap((l) => l.reviews);
+        const allReviews = business.locations.flatMap((l: { reviews: unknown[] }) => l.reviews);
 
         // Calculate metrics
         const totalReviews = allReviews.length;
         const avgRating =
           totalReviews > 0
-            ? allReviews.reduce((sum, r) => sum + r.stars, 0) / totalReviews
+            ? allReviews.reduce((sum: number, r: { stars: number }) => sum + r.stars, 0) / totalReviews
             : 0;
 
         const reviewsWithReplies = allReviews.filter(
-          (r) => r.reply?.status === "SENT",
+          (r: { reply?: { status: string } }) => r.reply?.status === "SENT",
         );
         const coverage =
           totalReviews > 0
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
 
         // Calculate average response time
         const responseTimes = reviewsWithReplies
-          .map((r) => {
+          .map((r: { reply?: { sentAt?: Date }; createdAt: Date }) => {
             if (r.reply?.sentAt) {
               return r.reply.sentAt.getTime() - r.createdAt.getTime();
             }

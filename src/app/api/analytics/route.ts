@@ -49,19 +49,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const businessIds = user.businesses.map((b) => b.id);
-    const locationIds = user.businesses.flatMap((b) =>
-      b.locations.map((l) => l.id),
+    const businessIds = user.businesses.map((b: { id: string }) => b.id);
+    const locationIds = user.businesses.flatMap((b: { locations: Array<{ id: string }> }) =>
+      b.locations.map((l: { id: string }) => l.id),
     );
 
     // Filter by specific business if provided
-    const targetBusinessIds = query.businessId
-      ? [query.businessId]
-      : businessIds;
     const targetLocationIds = query.businessId
       ? user.businesses
-          .filter((b) => b.id === query.businessId)
-          .flatMap((b) => b.locations.map((l) => l.id))
+          .filter((b: { id: string }) => b.id === query.businessId)
+          .flatMap((b: { locations: Array<{ id: string }> }) => b.locations.map((l: { id: string }) => l.id))
       : locationIds;
 
     const startDate = new Date();
@@ -87,18 +84,18 @@ export async function GET(request: NextRequest) {
     const totalReviews = reviews.length;
     const avgRating =
       totalReviews > 0
-        ? reviews.reduce((sum, r) => sum + r.stars, 0) / totalReviews
+        ? reviews.reduce((sum: number, r: { stars: number }) => sum + r.stars, 0) / totalReviews
         : 0;
 
     const reviewsWithReplies = reviews.filter(
-      (r) => r.reply?.status === "SENT",
+      (r: { reply?: { status: string } | null }) => r.reply?.status === "SENT",
     );
     const coverage =
       totalReviews > 0 ? (reviewsWithReplies.length / totalReviews) * 100 : 0;
 
     // Calculate average response time
     const responseTimes = reviewsWithReplies
-      .map((r) => {
+      .map((r: { reply?: { sentAt?: Date } | null; createdAt: Date }) => {
         if (r.reply?.sentAt) {
           return r.reply.sentAt.getTime() - r.createdAt.getTime();
         }
@@ -132,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     // Platform distribution
     const platformDistribution = reviews.reduce(
-      (acc, review) => {
+      (acc: Record<string, number>, review: { platform: string }) => {
         acc[review.platform] = (acc[review.platform] || 0) + 1;
         return acc;
       },
@@ -141,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     // Status distribution
     const statusDistribution = reviews.reduce(
-      (acc, review) => {
+      (acc: Record<string, number>, review: { status: string }) => {
         acc[review.status] = (acc[review.status] || 0) + 1;
         return acc;
       },
@@ -199,7 +196,7 @@ async function getRatingTrends(
 
     const avgRating =
       reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length
+        ? reviews.reduce((sum: number, r: { stars: number }) => sum + r.stars, 0) / reviews.length
         : 0;
 
     trends.push({
@@ -235,9 +232,9 @@ async function getSentimentTrends(
       },
     });
 
-    const positive = reviews.filter((r) => r.stars >= 4).length;
-    const neutral = reviews.filter((r) => r.stars === 3).length;
-    const negative = reviews.filter((r) => r.stars <= 2).length;
+    const positive = reviews.filter((r: { stars: number }) => r.stars >= 4).length;
+    const neutral = reviews.filter((r: { stars: number }) => r.stars === 3).length;
+    const negative = reviews.filter((r: { stars: number }) => r.stars <= 2).length;
 
     trends.push({
       date: date.toISOString().split("T")[0],
@@ -251,7 +248,7 @@ async function getSentimentTrends(
   return trends;
 }
 
-function getCommonIssues(reviews: any[]) {
+function getCommonIssues(reviews: Array<{ text: string }>) {
   // Simple keyword extraction for common issues
   const issueKeywords = [
     "service",

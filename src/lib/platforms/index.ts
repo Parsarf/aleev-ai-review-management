@@ -1,8 +1,14 @@
+import {
+  fetchGoogleReviews,
+  postGoogleReply,
+  refreshGoogleToken,
+} from "@/lib/google-business";
+
 export interface PlatformAdapter {
   name: string;
-  readReviews: (locationId: string, config: any) => Promise<ReviewData[]>;
-  postReply: (reviewId: string, reply: string, config: any) => Promise<boolean>;
-  isConnected: (config: any) => boolean;
+  readReviews: (locationId: string, config: PlatformConfig) => Promise<ReviewData[]>;
+  postReply: (reviewId: string, reply: string, config: PlatformConfig) => Promise<boolean>;
+  isConnected: (config: PlatformConfig) => boolean;
 }
 
 export interface ReviewData {
@@ -18,9 +24,12 @@ export interface ReviewData {
 export interface PlatformConfig {
   accessToken?: string;
   refreshToken?: string;
+  accountId?: string;
+  locationId?: string;
   placeId?: string;
   businessId?: string;
-  [key: string]: any;
+  expiresAt?: number;
+  [key: string]: unknown;
 }
 
 // Google Business Profile Adapter
@@ -31,20 +40,37 @@ export class GoogleAdapter implements PlatformAdapter {
     locationId: string,
     config: PlatformConfig,
   ): Promise<ReviewData[]> {
-    if (!config.accessToken || !config.placeId) {
-      throw new Error("Google Business Profile not properly configured");
+    if (!config.accessToken || !config.accountId || !config.locationId) {
+      throw new Error(
+        "Google Business Profile not properly configured. Missing accessToken, accountId, or locationId.",
+      );
     }
 
     try {
-      // In a real implementation, you would call the Google My Business API
-      // For now, we'll return mock data
-      console.log(`Reading Google reviews for location ${locationId}`);
+      // Check if token needs refresh
+      let accessToken = config.accessToken;
+      if (config.expiresAt && config.expiresAt < Date.now()) {
+        if (!config.refreshToken) {
+          throw new Error("Access token expired and no refresh token available");
+        }
+        const newTokens = await refreshGoogleToken(config.refreshToken);
+        accessToken = newTokens.access_token;
+        // Note: In a real app, you'd update the stored config with new tokens
+      }
 
-      // Mock implementation - replace with actual Google My Business API calls
-      return [];
+      // Fetch reviews from Google My Business API
+      const reviews = await fetchGoogleReviews(
+        accessToken,
+        config.accountId,
+        config.locationId,
+      );
+
+      return reviews;
     } catch (error) {
       console.error("Error reading Google reviews:", error);
-      throw new Error("Failed to read Google reviews");
+      throw new Error(
+        `Failed to read Google reviews: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -53,17 +79,30 @@ export class GoogleAdapter implements PlatformAdapter {
     reply: string,
     config: PlatformConfig,
   ): Promise<boolean> {
-    if (!config.accessToken) {
+    if (!config.accessToken || !config.accountId || !config.locationId) {
       throw new Error("Google Business Profile not authenticated");
     }
 
     try {
-      // In a real implementation, you would call the Google My Business API
-      // to post a reply to the review
-      console.log(`Posting Google reply to review ${reviewId}: ${reply}`);
+      // Check if token needs refresh
+      let accessToken = config.accessToken;
+      if (config.expiresAt && config.expiresAt < Date.now()) {
+        if (!config.refreshToken) {
+          throw new Error("Access token expired and no refresh token available");
+        }
+        const newTokens = await refreshGoogleToken(config.refreshToken);
+        accessToken = newTokens.access_token;
+        // Note: In a real app, you'd update the stored config with new tokens
+      }
 
-      // Mock implementation - replace with actual Google My Business API calls
-      return true;
+      // Post reply to Google My Business API
+      return await postGoogleReply(
+        accessToken,
+        config.accountId,
+        config.locationId,
+        reviewId,
+        reply,
+      );
     } catch (error) {
       console.error("Error posting Google reply:", error);
       return false;
@@ -71,57 +110,56 @@ export class GoogleAdapter implements PlatformAdapter {
   }
 
   isConnected(config: PlatformConfig): boolean {
-    return !!(config.accessToken && config.placeId);
+    return !!(config.accessToken && config.accountId && config.locationId);
   }
 }
 
-// Yelp Adapter (Mock)
+// Yelp Adapter (Yelp doesn't allow review replies via API)
 export class YelpAdapter implements PlatformAdapter {
   name = "Yelp";
 
   async readReviews(
-    locationId: string,
-    config: PlatformConfig,
+    _locationId: string,
+    _config: PlatformConfig,
   ): Promise<ReviewData[]> {
-    console.log(`Reading Yelp reviews for location ${locationId} (mock)`);
+    // Yelp API can be used to fetch reviews, but replies are not supported
+    console.log("Yelp review reading not yet implemented");
     return [];
   }
 
   async postReply(
-    reviewId: string,
-    reply: string,
-    config: PlatformConfig,
+    _reviewId: string,
+    _reply: string,
+    _config: PlatformConfig,
   ): Promise<boolean> {
-    console.log(`Posting Yelp reply to review ${reviewId} (mock): ${reply}`);
-    return true;
+    // Yelp doesn't allow businesses to reply to reviews via API
+    return false;
   }
 
-  isConnected(config: PlatformConfig): boolean {
-    return false; // Yelp doesn't allow businesses to reply to reviews
+  isConnected(_config: PlatformConfig): boolean {
+    return false; // Yelp integration not active
   }
 }
 
-// Facebook Adapter (Mock)
+// Facebook Adapter (To be implemented)
 export class FacebookAdapter implements PlatformAdapter {
   name = "Facebook";
 
   async readReviews(
-    locationId: string,
-    config: PlatformConfig,
+    _locationId: string,
+    _config: PlatformConfig,
   ): Promise<ReviewData[]> {
-    console.log(`Reading Facebook reviews for location ${locationId} (mock)`);
+    console.log("Facebook review reading not yet implemented");
     return [];
   }
 
   async postReply(
-    reviewId: string,
-    reply: string,
-    config: PlatformConfig,
+    _reviewId: string,
+    _reply: string,
+    _config: PlatformConfig,
   ): Promise<boolean> {
-    console.log(
-      `Posting Facebook reply to review ${reviewId} (mock): ${reply}`,
-    );
-    return true;
+    console.log("Facebook reply posting not yet implemented");
+    return false;
   }
 
   isConnected(config: PlatformConfig): boolean {
@@ -129,33 +167,29 @@ export class FacebookAdapter implements PlatformAdapter {
   }
 }
 
-// TripAdvisor Adapter (Mock)
+// TripAdvisor Adapter (To be implemented)
 export class TripAdvisorAdapter implements PlatformAdapter {
   name = "TripAdvisor";
 
   async readReviews(
-    locationId: string,
-    config: PlatformConfig,
+    _locationId: string,
+    _config: PlatformConfig,
   ): Promise<ReviewData[]> {
-    console.log(
-      `Reading TripAdvisor reviews for location ${locationId} (mock)`,
-    );
+    console.log("TripAdvisor review reading not yet implemented");
     return [];
   }
 
   async postReply(
-    reviewId: string,
-    reply: string,
-    config: PlatformConfig,
+    _reviewId: string,
+    _reply: string,
+    _config: PlatformConfig,
   ): Promise<boolean> {
-    console.log(
-      `Posting TripAdvisor reply to review ${reviewId} (mock): ${reply}`,
-    );
-    return true;
+    console.log("TripAdvisor reply posting not yet implemented");
+    return false;
   }
 
-  isConnected(config: PlatformConfig): boolean {
-    return false; // TripAdvisor doesn't allow businesses to reply to reviews
+  isConnected(_config: PlatformConfig): boolean {
+    return false; // TripAdvisor integration not active
   }
 }
 

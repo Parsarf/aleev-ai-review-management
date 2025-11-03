@@ -4,13 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { rateLimit, getRateLimitIdentifier } from "@/lib/rate-limit";
-import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 // import { createCheckoutSession, createCustomerPortalSession, STRIPE_PLANS } from '@/lib/stripe'
-
-const createCheckoutSchema = z.object({
-  businessId: z.string(),
-  plan: z.enum(["STARTER", "PROFESSIONAL", "ENTERPRISE"]),
-});
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,9 +47,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate usage for each business
-    const businessesWithUsage = businesses.map((business) => {
+    const businessesWithUsage = businesses.map((business: { locations: Array<{ reviews: unknown[] }>; subscriptions: Array<{ plan?: string }> }) => {
       const totalReviews = business.locations.reduce(
-        (sum, location) => sum + location.reviews.length,
+        (sum: number, location: { reviews: unknown[] }) => sum + location.reviews.length,
         0,
       );
       const subscription = business.subscriptions[0];
