@@ -1,4 +1,7 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAdapter, PlatformConfig } from "@/lib/platforms";
 import { logAuditEvent } from "@/lib/audit";
@@ -16,9 +19,7 @@ export async function POST(request: NextRequest) {
     // Get all locations with connected platforms
     const locations = await prisma.location.findMany({
       where: {
-        platformAccounts: {
-          not: null,
-        },
+        platformAccounts: { not: Prisma.DbNull }, // Exclude DB NULL for JSON column
       },
       include: {
         business: true,

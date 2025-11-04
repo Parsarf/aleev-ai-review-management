@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -93,22 +95,20 @@ export async function GET(request: NextRequest) {
     const coverage =
       totalReviews > 0 ? (reviewsWithReplies.length / totalReviews) * 100 : 0;
 
-    // Calculate average response time
+    // Calculate average response time (ms) only for reviews that have a sent reply
     const responseTimes = reviewsWithReplies
-      .map((r: { reply?: { sentAt?: Date } | null; createdAt: Date }) => {
-        if (r.reply?.sentAt) {
-          return r.reply.sentAt.getTime() - r.createdAt.getTime();
-        }
-        return null;
+      .map((r) => {
+        const sentAt: Date | null | undefined = r.reply?.sentAt ?? null;
+        return sentAt ? sentAt.getTime() - r.createdAt.getTime() : null;
       })
-      .filter(Boolean) as number[];
+      .filter((n): n is number => n !== null);
 
-    const avgResponseTime =
+    const avgResponseMs =
       responseTimes.length > 0
-        ? responseTimes.reduce((sum, time) => sum + time, 0) /
-          responseTimes.length /
-          (1000 * 60 * 60) // Convert to hours
+        ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
         : 0;
+
+    const avgResponseTime = avgResponseMs / (1000 * 60 * 60); // Convert to hours
 
     // Rating trends (daily)
     const ratingTrends = await getRatingTrends(

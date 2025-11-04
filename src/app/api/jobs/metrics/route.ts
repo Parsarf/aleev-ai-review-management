@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/audit";
@@ -43,39 +45,49 @@ export async function POST(request: NextRequest) {
 
     for (const business of businesses) {
       try {
-        const allReviews = business.locations.flatMap((l: { reviews: unknown[] }) => l.reviews);
+        // Type the reviews array explicitly to avoid unknown type issues
+        type ReviewWithReply = {
+          stars: number;
+          createdAt: Date;
+          reply?: {
+            status: string;
+            sentAt: Date | null;
+          } | null;
+        };
+        
+        const allReviews: ReviewWithReply[] = business.locations.flatMap(
+          (l) => (l.reviews || []) as ReviewWithReply[]
+        );
 
         // Calculate metrics
         const totalReviews = allReviews.length;
         const avgRating =
           totalReviews > 0
-            ? allReviews.reduce((sum: number, r: { stars: number }) => sum + r.stars, 0) / totalReviews
+            ? allReviews.reduce((sum, r) => sum + r.stars, 0) / totalReviews
             : 0;
 
         const reviewsWithReplies = allReviews.filter(
-          (r: { reply?: { status: string } }) => r.reply?.status === "SENT",
+          (r) => r.reply?.status === "SENT",
         );
         const coverage =
           totalReviews > 0
             ? (reviewsWithReplies.length / totalReviews) * 100
             : 0;
 
-        // Calculate average response time
+        // Calculate average response time (ms) only for reviews that have a sent reply
         const responseTimes = reviewsWithReplies
-          .map((r: { reply?: { sentAt?: Date }; createdAt: Date }) => {
-            if (r.reply?.sentAt) {
-              return r.reply.sentAt.getTime() - r.createdAt.getTime();
-            }
-            return null;
+          .map((r) => {
+            const sentAt: Date | null | undefined = r.reply?.sentAt ?? null;
+            return sentAt ? sentAt.getTime() - r.createdAt.getTime() : null;
           })
-          .filter(Boolean) as number[];
+          .filter((n): n is number => n !== null);
 
-        const avgResponseTime =
+        const avgResponseMs =
           responseTimes.length > 0
-            ? responseTimes.reduce((sum, time) => sum + time, 0) /
-              responseTimes.length /
-              (1000 * 60 * 60) // Convert to hours
+            ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
             : 0;
+
+        const avgResponseTime = avgResponseMs / (1000 * 60 * 60); // Convert to hours
 
         // Upsert metrics record
         await prisma.metrics.upsert({

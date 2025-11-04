@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -69,14 +71,11 @@ export async function GET(request: NextRequest) {
       b.locations.map((l: { id: string }) => l.id),
     );
 
-    // Build where clause
+    // Build where clause (Google-only)
     const where: Record<string, unknown> = {
+      platform: "GOOGLE" as const,
       locationId: { in: locationIds },
     };
-
-    if (query.platforms) {
-      where.platform = { in: query.platforms };
-    }
 
     if (query.statuses) {
       where.status = { in: query.statuses };
@@ -126,7 +125,7 @@ export async function GET(request: NextRequest) {
 
 const createReviewSchema = z.object({
   locationId: z.string(),
-  platform: z.enum(["GOOGLE", "YELP", "FACEBOOK", "TRIPADVISOR"]),
+  platform: z.literal("GOOGLE"),
   platformId: z.string(),
   stars: z.number().min(1).max(5),
   text: z.string().min(1),
