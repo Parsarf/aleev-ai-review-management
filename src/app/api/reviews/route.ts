@@ -64,7 +64,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      // Log for debugging - user ID from session but not found in DB
+      console.error("User not found in database:", {
+        sessionUserId: session.user.id,
+        sessionUserEmail: session.user.email,
+      });
+      return NextResponse.json(
+        {
+          error: "User not found",
+          message:
+            "Your account was not found in the database. Please sign out and sign in again to create your account.",
+        },
+        { status: 404 },
+      );
     }
 
     const locationIds = user.businesses.flatMap((b: { locations: Array<{ id: string }> }) =>
