@@ -59,18 +59,57 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
 
+    // Validate user ID before querying
+    const userId = session.user.id;
+    if (!userId || typeof userId !== "string" || userId.trim() === "") {
+      console.error("[GET /api/reviews] Invalid user ID in session:", {
+        userId,
+        sessionUser: session.user,
+      });
+      return NextResponse.json(
+        {
+          error: "Invalid session",
+          message: "Your session is invalid. Please sign out and sign in again.",
+        },
+        { status: 401 },
+      );
+    }
+
     // Get user's businesses
-    console.log("[GET /api/reviews] Querying user from database:", session.user.id);
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        businesses: {
-          include: {
-            locations: true,
+    console.log("[GET /api/reviews] Querying user from database:", userId);
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          businesses: {
+            include: {
+              locations: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.error("[GET /api/reviews] Prisma error querying user:", {
+        error,
+        userId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      
+      // Check if it's an invalid ID format error
+      if (error instanceof Error && error.message.includes("Invalid")) {
+        return NextResponse.json(
+          {
+            error: "Invalid user ID",
+            message: "Your session contains an invalid user ID. Please sign out and sign in again.",
+          },
+          { status: 401 },
+        );
+      }
+      
+      // Re-throw other database errors
+      throw error;
+    }
 
     if (!user) {
       // Log comprehensive debugging info
@@ -191,6 +230,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Validate user ID before using it
+    const userId = session.user.id;
+    if (!userId || typeof userId !== "string" || userId.trim() === "") {
+      console.error("[POST /api/reviews] Invalid user ID in session:", {
+        userId,
+        sessionUser: session.user,
+      });
+      return NextResponse.json(
+        {
+          error: "Invalid session",
+          message: "Your session is invalid. Please sign out and sign in again.",
+        },
+        { status: 401 },
+      );
+    }
+
     // Rate limiting
     const identifier = getRateLimitIdentifier(request);
     const rateLimitResult = rateLimit(identifier);
@@ -205,14 +260,36 @@ export async function POST(request: NextRequest) {
     const data = createReviewSchema.parse(body);
 
     // Verify user has access to the location
-    const location = await prisma.location.findFirst({
-      where: {
-        id: data.locationId,
-        business: {
-          ownerId: session.user.id,
+    let location;
+    try {
+      location = await prisma.location.findFirst({
+        where: {
+          id: data.locationId,
+          business: {
+            ownerId: userId,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.error("[POST /api/reviews] Prisma error querying location:", {
+        error,
+        userId,
+        locationId: data.locationId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      
+      if (error instanceof Error && error.message.includes("Invalid")) {
+        return NextResponse.json(
+          {
+            error: "Invalid user ID",
+            message: "Your session contains an invalid user ID. Please sign out and sign in again.",
+          },
+          { status: 401 },
+        );
+      }
+      
+      throw error;
+    }
 
     if (!location) {
       return NextResponse.json(

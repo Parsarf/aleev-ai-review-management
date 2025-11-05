@@ -36,19 +36,33 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     session: async ({ session, user }) => {
-      // When using database sessions, 'user' is always provided
-      if (session?.user && user) {
+      // When using database sessions, 'user' should be provided
+      // But we need to handle cases where it might not be
+      if (session?.user) {
         interface ExtendedUser {
           id: string;
           role: string;
         }
-        (session.user as ExtendedUser).id = user.id;
-        // Fetch user role from database
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { role: true },
-        });
-        (session.user as ExtendedUser).role = dbUser?.role || "STAFF";
+
+        // If user object is provided, use it
+        if (user?.id) {
+          (session.user as ExtendedUser).id = user.id;
+          // Fetch user role from database
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: user.id },
+              select: { role: true },
+            });
+            (session.user as ExtendedUser).role = dbUser?.role || "STAFF";
+          } catch (error) {
+            console.error("Error fetching user role in session callback:", error);
+            (session.user as ExtendedUser).role = "STAFF";
+          }
+        } else {
+          // Fallback: try to get user ID from token/session
+          // This should not happen with database sessions, but handle gracefully
+          console.warn("Session callback: user object not provided", { session });
+        }
       }
       return session;
     },
