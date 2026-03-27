@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@prisma/client'],
+  allowedDevOrigins: ['*.replit.dev', '*.kirk.replit.dev', '*.repl.co'],
   images: {
     domains: ['images.unsplash.com', 'lh3.googleusercontent.com']
   },
