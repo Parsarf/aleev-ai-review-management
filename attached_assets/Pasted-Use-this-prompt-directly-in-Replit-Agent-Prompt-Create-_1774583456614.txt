@@ -1,0 +1,101 @@
+Use this prompt directly in Replit Agent:
+
+⸻
+
+Prompt:
+
+Create a separate simple landing page website for ALEEV, not modifying or interfering with the existing app codebase.
+
+Important constraints:
+	•	Do NOT touch or change any existing backend, API routes, or main app logic
+	•	This should be a standalone static page (simple frontend only)
+	•	Place it in a separate folder (e.g., /landing or /website)
+	•	It should be deployable independently
+
+⸻
+
+Goal:
+
+Build a clean, minimal, professional landing page that represents ALEEV as a real product for Google Business API approval.
+
+⸻
+
+Content requirements:
+
+Brand name:
+ALEEV
+
+Headline:
+AI-powered Google Review Management
+
+Description:
+ALEEV helps businesses manage their Google Business Profile reviews more efficiently.
+Users can connect their business account, view customer reviews, generate AI-assisted responses, and approve replies before publishing.
+
+⸻
+
+Sections to include:
+	1.	Hero Section
+
+	•	Product name (ALEEV)
+	•	Short tagline
+	•	Simple CTA button (e.g., “Coming Soon” or “Request Access”)
+
+	2.	How it works
+
+	•	Connect Google Business Profile
+	•	View reviews in dashboard
+	•	Generate AI replies
+	•	Approve and publish responses
+
+	3.	Features
+
+	•	AI-generated replies
+	•	Human approval before posting
+	•	Centralized review management
+	•	Time-saving automation
+
+	4.	Footer
+
+	•	Contact email placeholder
+	•	Copyright text
+
+⸻
+
+Design requirements:
+	•	Minimal, modern UI
+	•	Centered layout
+	•	Clean spacing
+	•	Neutral colors (white/black/gray with subtle accent)
+	•	Responsive (mobile + desktop)
+	•	No complex animations needed
+
+⸻
+
+Tech requirements:
+	•	Use simple HTML + CSS OR React (whichever is easier)
+	•	No backend needed
+	•	No database
+	•	No authentication
+	•	No external APIs
+
+⸻
+
+File structure:
+
+Create something like:
+
+/landing
+  index.html (or React entry)
+  styles.css
+
+
+⸻
+
+Final requirement:
+
+The page should look like a real SaaS product homepage, even if simple, so it can be used as the official company website URL for Google API approval.
+
+⸻
+
+If possible, include instructions on how to deploy it quickly (Replit hosting or export to Vercel).
