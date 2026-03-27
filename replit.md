@@ -1,7 +1,7 @@
 # Aleev - AI Review Management Platform
 
 ## Overview
-Aleev is a production-ready SaaS web application designed for businesses to manage online reviews efficiently. It provides a centralized inbox for reviews from platforms like Google, Yelp, Facebook, and TripAdvisor, leveraging AI for intelligent response generation, crisis detection, and comprehensive analytics. The platform aims to streamline review management, enhance customer satisfaction, and protect brand reputation.
+Aleev is a production-ready SaaS web application for businesses to manage online reviews efficiently. It provides a centralized inbox for reviews from platforms like Google, Yelp, Facebook, and TripAdvisor, leveraging AI for intelligent response generation, crisis detection, and comprehensive analytics.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,33 +9,45 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-The frontend is built with Next.js 14 (App Router, React 19), utilizing `shadcn/ui` (built on Radix UI) for components and TailwindCSS for styling. Data visualization is handled by Recharts, and session management uses NextAuth.js client-side hooks. Key pages include Inbox, Analytics, Tickets, Settings, and Billing.
+The frontend is built with Next.js 15 (App Router, React 19), using `shadcn/ui` (Radix UI) for components and TailwindCSS for styling. Data visualization is handled by Recharts, and session management uses NextAuth.js client-side hooks. Key pages: Inbox, Analytics, Tickets, Settings, and Billing.
 
 ### Backend Architecture
-The backend uses Next.js API Routes with a Node.js runtime. It features Prisma ORM for PostgreSQL, NextAuth.js for authentication (Google OAuth, database sessions), and Zod for input validation. Rate limiting is implemented using a token bucket algorithm. Background jobs handle review ingestion and daily metrics rollup. AI integration with OpenAI GPT powers reply generation, crisis detection, and content safety filtering.
+Next.js API Routes with Node.js runtime. Prisma ORM for PostgreSQL, NextAuth.js for authentication (Google OAuth, database sessions), Zod for input validation. Rate limiting via token bucket algorithm. Background jobs handle review ingestion and daily metrics rollup. OpenAI GPT powers reply generation, crisis detection, and content safety filtering.
 
 ### Database Schema
-The PostgreSQL database schema includes tables for `users` (with RBAC: OWNER, MANAGER, STAFF), `accounts`, `sessions`, `businesses`, `locations`, `subscriptions`, `reviews`, `replies`, `tickets`, `metrics`, and `audit_logs`.
+PostgreSQL tables: `users` (RBAC: OWNER, MANAGER, STAFF), `accounts`, `sessions`, `businesses`, `locations`, `subscriptions`, `reviews`, `replies`, `tickets`, `metrics`, `audit_logs`.
 
 ### Authentication & Authorization
-Authentication uses NextAuth.js with Google OAuth 2.0 and database-backed sessions. Role-Based Access Control (RBAC) is implemented with three permission levels: OWNER, MANAGER, and STAFF, controlling access to dashboard pages and API routes via middleware.
+NextAuth.js with Google OAuth 2.0, database-backed sessions. RBAC with three roles: OWNER, MANAGER, STAFF — enforced on dashboard pages and API routes via middleware.
 
 ### Deployment Configuration
-The application is deployed on Replit's Autoscale platform, configured for Node.js 20. It uses Replit PostgreSQL (Neon-backed) for the database. Build and start commands are adapted for Replit compatibility, and environment variables are managed via Replit Secrets.
+- **Platform**: Replit Autoscale (Node.js 20)
+- **Database**: Replit PostgreSQL (Neon-backed), accessed via `DATABASE_URL`
+- **Dev server**: `npm run dev` on `0.0.0.0:5000`
+- **Build**: `npm run build` → `npm run start`
+- **Secrets**: Managed via Replit Secrets
+
+### Replit-Specific Fixes Applied
+- `allowedDevOrigins` set in `next.config.js` to whitelist `*.replit.dev` domains (fixes blank screen in preview pane)
+- Sentry fully disabled: `instrumentation.ts` and `instrumentation-client.ts` are empty stubs; all Sentry config files removed (they caused a `SyntaxError` in the browser)
+- `directUrl` removed from Prisma schema (was Vercel-specific connection pooling)
+
+## Landing Page
+A standalone marketing landing page lives in `landing/` (source) and `public/landing/` (served by Next.js). Access at `/landing/index.html`. Also pushed to GitHub: `github.com/Parsarf/ALEEV_WEB`.
 
 ## External Dependencies
 
 ### Required Services
-- **PostgreSQL**: Primary database (v13+).
-- **OpenAI API**: For GPT-based AI reply generation and content analysis.
-- **Google Cloud Platform**: For OAuth authentication and Google Business Profile API integration.
-- **Stripe**: For subscription billing and payment processing.
-- **Sentry**: (Optional) For error monitoring and performance tracking.
+- **PostgreSQL**: Primary database (v13+)
+- **OpenAI API**: GPT-based AI reply generation and content analysis
+- **Google Cloud Platform**: OAuth authentication and Google Business Profile API
+- **Stripe**: Subscription billing and payment processing
 
 ### Third-Party Libraries
-- `googleapis`: Google Business Profile API client.
-- `openai`: OpenAI SDK.
-- `stripe` / `@stripe/stripe-js`: Payment processing.
-- `@sentry/nextjs`: Error monitoring.
-- `@auth/prisma-adapter`: NextAuth database adapter.
-- `bullmq` / `ioredis`: Job queue (optional).
+- `googleapis`: Google Business Profile API client
+- `openai`: OpenAI SDK
+- `stripe` / `@stripe/stripe-js`: Payment processing
+- `@auth/prisma-adapter`: NextAuth database adapter
+- `@sentry/nextjs`: Installed but not active (no DSN configured)
+- `bullmq` / `ioredis`: Job queue (optional)
+- `@replit/connectors-sdk`: Replit GitHub integration (used for landing page deployment)

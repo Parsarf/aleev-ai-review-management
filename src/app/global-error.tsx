@@ -1,10 +1,5 @@
 "use client";
 
-// Sentry import removed for Replit compatibility — no SENTRY_DSN is configured.
-// To restore Sentry error capture, set NEXT_PUBLIC_SENTRY_DSN and re-add:
-//   import * as Sentry from "@sentry/nextjs";
-//   useEffect(() => { Sentry.captureException(error); }, [error]);
-
 export default function GlobalError({
   error,
   reset,
