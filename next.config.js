@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const isDev = process.env.NODE_ENV !== 'production'
+
 const nextConfig = {
   serverExternalPackages: ['@prisma/client'],
   allowedDevOrigins: ['*.replit.dev', '*.kirk.replit.dev', '*.repl.co'],
@@ -9,7 +11,7 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   async headers() {
-    return [
+    const rules = [
       {
         source: '/api/:path*',
         headers: [
@@ -19,6 +21,24 @@ const nextConfig = {
         ],
       },
     ]
+
+    if (isDev) {
+      rules.push({
+        source: '/_next/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      })
+      rules.push({
+        source: '/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+        ],
+      })
+    }
+
+    return rules
   },
   async rewrites() {
     return [
