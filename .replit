@@ -38,3 +38,8 @@ externalPort = 80
 deploymentTarget = "autoscale"
 run = ["npm", "run", "start"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+CRON_SECRET = "XDR+KOzEaUT47DSUYP5kVn8l6PRnhyC4MpaeNWkjK3I="

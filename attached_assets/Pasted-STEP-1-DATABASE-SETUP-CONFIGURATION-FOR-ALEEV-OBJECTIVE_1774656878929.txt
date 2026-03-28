@@ -1,0 +1,544 @@
+STEP 1: DATABASE SETUP & CONFIGURATION FOR ALEEV
+
+  OBJECTIVE
+
+  Configure the PostgreSQL database, create migrations, enable seeding, and
+  verify the application can successfully connect and populate test data.
+  This is the foundation required before implementing Google Business
+  Profile API integration.
+
+  REPOSITORY INFORMATION
+
+  - Repository Path: /Users/parsa/aleev-ai-review-management
+  - Framework: Next.js 15 with App Router
+  - Database: PostgreSQL via Prisma ORM
+  - Current Status:
+    - .env.local exists but is EMPTY (0 bytes)
+    - No migrations exist in prisma/migrations/ directory
+    - Seed script is disabled in package.json line 17
+    - Prisma schema is complete at prisma/schema.prisma (213 lines)
+    - Seed data exists at prisma/seed.ts (370 lines) but cannot run
+
+  CRITICAL REQUIREMENTS
+
+  1. Environment Configuration
+
+  You MUST create a properly configured .env.local file with ALL required
+  environment variables. Do NOT skip any variables or use placeholder
+  values.
+
+  2. Database Connection
+
+  You MUST use a real PostgreSQL database. Options:
+  - Option A (Recommended): Supabase free tier (https://supabase.com)
+  - Option B: Neon free tier (https://neon.tech)
+  - Option C: Local PostgreSQL (requires brew install postgresql on macOS)
+  - Option D: Railway free tier (https://railway.app)
+
+  3. Migration Creation
+
+  You MUST generate proper Prisma migrations from the schema. Do NOT use
+  prisma db push as it's destructive and unsuitable for production.
+
+  4. Seed Data
+
+  You MUST enable and successfully run the seed script to populate test data
+   including:
+  - 3 test users (owner, manager, staff)
+  - 2 businesses with locations
+  - 6 sample reviews across platforms
+  - 1 crisis ticket for testing
+  - Subscription and metrics data
+
+  ---
+  STEP-BY-STEP IMPLEMENTATION
+
+  TASK 1: Set Up PostgreSQL Database
+
+  Option A: Using Supabase (Recommended for Demo)
+
+  1. Go to https://supabase.com and sign up/login
+  2. Create a new project:
+    - Project name: aleev-demo or similar
+    - Database password: Generate a strong password (save it!)
+    - Region: Choose closest to you
+    - Wait 2-3 minutes for project provisioning
+  3. Get connection strings:
+    - Click "Project Settings" (gear icon) → "Database"
+    - Under "Connection string" section, you'll see:
+        - URI: Copy the "URI" connection string (starts with
+  postgresql://postgres:[YOUR-PASSWORD]@)
+      - Pooler (Transaction Mode): Copy this for DATABASE_URL
+      - Direct Connection: Use the URI for DATABASE_DIRECT_URL
+  4. Important: Replace [YOUR-PASSWORD] in both URLs with your actual
+  password
+
+  Example URLs:
+  DATABASE_URL="postgresql://postgres.abcdefghijklmnop:your-password@aws-0-u
+  s-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+  DATABASE_DIRECT_URL="postgresql://postgres:your-password@db.abcdefghijklmn
+  op.supabase.co:5432/postgres"
+
+  Option B: Using Neon
+
+  1. Go to https://neon.tech and sign up/login
+  2. Create new project: "aleev-demo"
+  3. Copy the connection string from dashboard
+  4. Use the SAME connection string for both DATABASE_URL and
+  DATABASE_DIRECT_URL
+
+  Option C: Local PostgreSQL
+
+  # Install PostgreSQL (macOS)
+  brew install postgresql@14
+  brew services start postgresql@14
+
+  # Create database
+  createdb aireview
+
+  # Connection strings
+  DATABASE_URL="postgresql://localhost:5432/aireview"
+  DATABASE_DIRECT_URL="postgresql://localhost:5432/aireview"
+
+  ---
+  TASK 2: Generate Required Environment Variables
+
+  You need to generate secure values for authentication secrets. Run these
+  commands:
+
+  # Generate NEXTAUTH_SECRET (32-byte random string)
+  openssl rand -base64 32
+
+  # This will output something like: X8jK9mN2pQ4rS6tU8vW0yZ2aB4cD6eF8
+  # Copy this output - you'll use it for NEXTAUTH_SECRET
+
+  ---
+  TASK 3: Create and Configure .env.local
+
+  File Path: /Users/parsa/aleev-ai-review-management/.env.local
+
+  Action: Create this file with the following content. Replace ALL
+  placeholder values with actual values:
+
+  # ================================
+  # DATABASE CONFIGURATION
+  # ================================
+  # CRITICAL: You need BOTH URLs for Prisma to work correctly
+  # - DATABASE_URL: Used for runtime queries (pooled connection)
+  # - DATABASE_DIRECT_URL: Used for migrations (direct connection)
+
+  DATABASE_URL="postgresql://YOUR_DB_CONNECTION_HERE"
+  DATABASE_DIRECT_URL="postgresql://YOUR_DIRECT_CONNECTION_HERE"
+
+  # ================================
+  # NEXTAUTH CONFIGURATION
+  # ================================
+  # NEXTAUTH_SECRET: Generate with: openssl rand -base64 32
+  # NEXTAUTH_URL: Use http://localhost:3000 for local development
+
+  NEXTAUTH_URL="http://localhost:3000"
+  NEXTAUTH_SECRET="PASTE_YOUR_GENERATED_SECRET_HERE"
+
+  # ================================
+  # GOOGLE OAUTH CREDENTIALS
+  # ================================
+  # Get these from: https://console.cloud.google.com/apis/credentials
+  # 1. Create OAuth 2.0 Client ID
+  # 2. Application type: Web application
+  # 3. Authorized redirect URIs:
+  http://localhost:3000/api/auth/callback/google
+  # 4. Copy Client ID and Client Secret
+
+  GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+  GOOGLE_CLIENT_SECRET="YOUR_GOOGLE_CLIENT_SECRET"
+
+  # ================================
+  # OPENAI API KEY
+  # ================================
+  # Get from: https://platform.openai.com/api-keys
+  # Required for AI reply generation feature
+
+  OPENAI_API_KEY="sk-proj-YOUR_OPENAI_KEY_HERE"
+
+  # ================================
+  # STRIPE CONFIGURATION (Optional for Step 1)
+  # ================================
+  # You can leave these as test keys for now
+  # Billing functionality is disabled, so these won't be used yet
+
+  STRIPE_PUBLISHABLE_KEY="pk_test_placeholder"
+  STRIPE_SECRET_KEY="sk_test_placeholder"
+  STRIPE_WEBHOOK_SECRET="whsec_placeholder"
+
+  # ================================
+  # SENTRY CONFIGURATION (Optional)
+  # ================================
+  # Leave empty for now - error monitoring not critical for demo
+
+  SENTRY_DSN=""
+
+  # ================================
+  # APP CONFIGURATION
+  # ================================
+
+  NODE_ENV="development"
+  NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+  # ================================
+  # RATE LIMITING CONFIGURATION
+  # ================================
+
+  RATE_LIMIT_MAX_REQUESTS="100"
+  RATE_LIMIT_WINDOW_MS="900000"
+
+  # ================================
+  # AI CONFIGURATION
+  # ================================
+  # Crisis keywords for automatic review flagging (comma-separated)
+
+  CRISIS_KEYWORDS="lawsuit,legal action,health
+  department,unsafe,contaminated,poisoned,terrible service,worst
+  experience,never again,horrible,disgusting"
+
+  # Banned phrases for reply policy filtering (comma-separated)
+
+  BANNED_PHRASES="refund guaranteed,always,never,free meal,100% 
+  satisfaction,perfect,flawless"
+
+  # ================================
+  # CRON JOB AUTHENTICATION
+  # ================================
+  # Generate a secure secret for background jobs
+  # Run: openssl rand -base64 32
+
+  CRON_SECRET="PASTE_ANOTHER_GENERATED_SECRET_HERE"
+
+  ---
+  TASK 4: Verify Prisma Schema
+
+  File Path: /Users/parsa/aleev-ai-review-management/prisma/schema.prisma
+
+  Action: Read the file and verify it contains the directUrl configuration
+  on line 11:
+
+  datasource db {
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")        // pooled (Vercel runtime)
+    directUrl = env("DATABASE_DIRECT_URL") // unpooled (for migrate)
+  }
+
+  Expected: File should be 213 lines with 8 models (User, Business,
+  Location, Review, Reply, Ticket, Subscription, AuditLog, Metrics).
+
+  If Missing: This should already exist. If not, the schema is incomplete.
+
+  ---
+  TASK 5: Generate Prisma Client
+
+  Command:
+  cd /Users/parsa/aleev-ai-review-management
+  npm run db:generate
+
+  Expected Output:
+  ✔ Generated Prisma Client (5.x.x) to ./node_modules/@prisma/client in 
+  89ms
+
+  If Error: Check that DATABASE_URL is properly set in .env.local
+
+  ---
+  TASK 6: Create Database Migrations
+
+  Command:
+  npm run db:migrate
+
+  What This Does:
+  - Reads prisma/schema.prisma
+  - Creates a new migration file in
+  prisma/migrations/TIMESTAMP_dev/migration.sql
+  - Applies the migration to your database
+  - Creates all tables: users, businesses, locations, reviews, replies,
+  tickets, subscriptions, audit_logs, metrics
+
+  Expected Output:
+  Environment variables loaded from .env.local
+  Prisma schema loaded from prisma/schema.prisma
+  Datasource "db": PostgreSQL database "postgres", schema "public"
+
+  Applying migration `TIMESTAMP_dev`
+  The following migration(s) have been created and applied from new schema
+  changes:
+
+  migrations/
+    └─ TIMESTAMP_dev/
+      └─ migration.sql
+
+  Your database is now in sync with your schema.
+
+  ✔ Generated Prisma Client (5.x.x) to ./node_modules/@prisma/client in
+  89ms
+
+  Verification:
+  # Check that migrations directory was created
+  ls -la prisma/migrations/
+
+  # You should see a folder with timestamp like: 20260327_dev/
+
+  Common Errors and Solutions:
+
+  1. Error: "Can't reach database server"
+    - Solution: Check DATABASE_DIRECT_URL is correct
+    - Solution: Verify database is running (for local) or accessible (for
+  cloud)
+  2. Error: "Authentication failed"
+    - Solution: Verify password in connection string
+    - Solution: Check for special characters - they need URL encoding
+  3. Error: "Environment variable not found: DATABASE_DIRECT_URL"
+    - Solution: Add DATABASE_DIRECT_URL to .env.local
+
+  ---
+  TASK 7: Enable Database Seeding
+
+  File Path: /Users/parsa/aleev-ai-review-management/package.json
+
+  Current State (Line 17):
+  "db:seed": "echo Skipping seed for now",
+
+  Action: Replace line 17 with:
+  "db:seed": "tsx prisma/seed.ts",
+
+  Verification: Check that line 17 now has the correct seed command.
+
+  ---
+  TASK 8: Run Database Seed
+
+  Command:
+  npm run db:seed
+
+  What This Does:
+  - Executes prisma/seed.ts
+  - Creates 3 test users:
+    - owner@aleev.com (OWNER role)
+    - manager@aleev.com (MANAGER role)
+    - staff@aleev.com (STAFF role)
+  - Creates 2 businesses:
+    - "Bella Vista Restaurant"
+    - "Tech Solutions Inc"
+  - Creates 3 locations with mock Google Business Profile configurations
+  - Creates 6 sample reviews:
+    - 3 positive (4-5 stars)
+    - 2 negative (1-2 stars)
+    - 1 crisis review with keyword "legal action"
+  - Creates 1 crisis ticket for testing escalation
+  - Creates subscription and metrics data
+
+  Expected Output:
+  🌱 Seeding database...
+  ✅ Created users
+  ✅ Created businesses
+  ✅ Created locations
+  ✅ Created reviews
+  ✅ Created tickets
+  ✅ Created subscriptions
+  ✅ Created metrics
+  🎉 Seeding complete!
+
+  Common Errors and Solutions:
+
+  1. Error: "Cannot find module 'tsx'"
+    - Solution: Run npm install to ensure all dependencies are installed
+    - Solution: If still failing, run npm install -D tsx
+  2. Error: "PrismaClientKnownRequestError: Unique constraint failed"
+    - Solution: Database already has data. Clear it first:
+  npx prisma migrate reset --force
+  npm run db:seed
+  3. Error: "Invalid prisma.user.create() invocation"
+    - Solution: Check that migrations were applied successfully
+    - Solution: Verify Prisma Client was generated
+
+  ---
+  TASK 9: Verify Database Contents
+
+  Command:
+  # Open Prisma Studio to visualize data
+  npx prisma studio
+
+  What This Does:
+  - Opens http://localhost:5555 in your browser
+  - Shows all database tables with data
+
+  Verification Checklist:
+  - Navigate to "User" table → Should see 3 users
+  - Navigate to "Business" table → Should see 2 businesses
+  - Navigate to "Location" table → Should see 3 locations
+  - Navigate to "Review" table → Should see 6 reviews
+  - Navigate to "Ticket" table → Should see 1 ticket
+  - Navigate to "Subscription" table → Should see 2 subscriptions
+  - Navigate to "Metrics" table → Should see metrics data
+
+  If any table is empty: Re-run npm run db:seed
+
+  ---
+  TASK 10: Start Development Server and Test
+
+  Command:
+  npm run dev
+
+  Expected Output:
+  ▲ Next.js 15.x.x
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+  ✓ Starting...
+  ✓ Ready in 2.3s
+
+  Verification Steps:
+
+  1. Open Browser: Navigate to http://localhost:3000
+    - Expected: Landing page with "AI-Powered Review Management" headline
+    - Expected: "Get Started" and "Learn More" buttons
+  2. Test Authentication Flow:
+    - Click "Get Started" button
+    - Expected: Redirects to /auth/signin
+    - Expected: See "Sign in with Google" button
+    - DO NOT click sign in yet (Google OAuth not configured in this step)
+  3. Test API Health:
+  # In a new terminal
+  curl http://localhost:3000/api/healthz
+    - Expected: {"status":"ok"}
+  4. Test Database Connection:
+    - The server should start without database connection errors
+    - Check terminal for any Prisma errors
+    - Expected: No errors about "Can't reach database"
+
+  ---
+  DELIVERABLES FOR STEP 1
+
+  At the end of this step, you should have:
+
+  - PostgreSQL database provisioned and accessible
+  - .env.local file with all required environment variables
+  - Database migrations created in prisma/migrations/
+  - Prisma Client generated successfully
+  - Seed script enabled in package.json
+  - Test data populated (3 users, 2 businesses, 6 reviews, etc.)
+  - Development server running on http://localhost:3000
+  - Prisma Studio accessible at http://localhost:5555
+
+  ---
+  VALIDATION CHECKLIST
+
+  Before proceeding to Step 2, verify ALL of the following:
+
+  # 1. Check .env.local exists and has content
+  cat /Users/parsa/aleev-ai-review-management/.env.local | wc -l
+  # Expected: Should show more than 50 lines
+
+  # 2. Check migrations directory exists
+  ls -la /Users/parsa/aleev-ai-review-management/prisma/migrations/
+  # Expected: Should show at least one migration folder
+
+  # 3. Check seed script is enabled
+  grep "db:seed" /Users/parsa/aleev-ai-review-management/package.json
+  # Expected: "db:seed": "tsx prisma/seed.ts"
+
+  # 4. Verify Prisma Client is generated
+  ls -la
+  /Users/parsa/aleev-ai-review-management/node_modules/@prisma/client/
+  # Expected: Directory exists with index.js and other files
+
+  # 5. Test database connection
+  cd /Users/parsa/aleev-ai-review-management
+  npx prisma db pull
+  # Expected: "Introspecting based on datasource..." (no errors)
+
+  # 6. Count database records
+  npx prisma studio
+  # Open in browser and verify:
+  # - users: 3 records
+  # - businesses: 2 records
+  # - reviews: 6 records
+
+  # 7. Test development server
+  npm run dev
+  # Expected: Server starts on http://localhost:3000 without errors
+
+  ---
+  CRITICAL NOTES
+
+  Security Considerations
+
+  1. NEVER commit .env.local to git - It's already in .gitignore
+  2. Use strong passwords for database and NEXTAUTH_SECRET
+  3. Rotate secrets if accidentally exposed
+
+  Common Pitfalls to Avoid
+
+  1. Do NOT use prisma db push - It bypasses migrations and is destructive
+  2. Do NOT skip DATABASE_DIRECT_URL - Migrations will fail
+  3. Do NOT use placeholder values - App won't work with fake credentials
+  4. Do NOT skip seeding - You need test data for next steps
+
+  Database Provider Notes
+
+  - Supabase: Free tier includes 500MB database, perfect for demo
+  - Neon: Free tier includes 1 branch, good alternative
+  - Local PostgreSQL: Full control but requires setup
+  - Railway: $5 credit/month, good for production later
+
+  Environment Variable Priorities
+
+  - CRITICAL NOW: DATABASE_URL, DATABASE_DIRECT_URL, NEXTAUTH_SECRET,
+  NEXTAUTH_URL
+  - CRITICAL FOR STEP 4: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  OPENAI_API_KEY
+  - NOT CRITICAL YET: STRIPE keys (billing is disabled), SENTRY_DSN
+
+  ---
+  TROUBLESHOOTING
+
+  Issue: "Error: P1001: Can't reach database server"
+
+  Cause: Database connection string is incorrect or database is not
+  accessible
+
+  Solutions:
+  1. Verify DATABASE_DIRECT_URL in .env.local
+  2. Check database is running (for local PostgreSQL)
+  3. Test connection manually:
+  psql "postgresql://your-connection-string-here"
+  4. For Supabase: Check IP restrictions in dashboard
+  5. Check for firewall blocking port 5432
+
+  Issue: "Error: Environment variable not found: DATABASE_DIRECT_URL"
+
+  Cause: .env.local is missing DATABASE_DIRECT_URL
+
+  Solution: Add DATABASE_DIRECT_URL to .env.local (same as DATABASE_URL for
+  most providers)
+
+  Issue: "Error: Authentication failed for user"
+
+  Cause: Password in connection string is incorrect
+
+  Solutions:
+  1. Verify password in Supabase/Neon dashboard
+  2. Check for special characters needing URL encoding:
+    - Replace @ with %40
+    - Replace # with %23
+    - Replace $ with %24
+
+  Issue: Seed script runs but no data appears
+
+  Cause: Seed script might be using wrong database
+
+  Solution:
+  # Clear database and re-seed
+  npx prisma migrate reset --force
+  npm run db:seed
+
+  Issue: "Module not found: Can't resolve '@prisma/client'"
+
+  Cause: Prisma Client not generated
+
+  Solution:
+  npm run db:generate
