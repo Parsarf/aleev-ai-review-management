@@ -32,9 +32,6 @@ NextAuth.js with Google OAuth 2.0, database-backed sessions. RBAC with three rol
 - Sentry fully disabled: `instrumentation.ts` and `instrumentation-client.ts` are empty stubs; all Sentry config files removed (they caused a `SyntaxError` in the browser)
 - `directUrl` removed from Prisma schema (was Vercel-specific connection pooling)
 
-## Landing Page
-A standalone marketing landing page lives in `landing/` (source) and `public/landing/` (served by Next.js). Access at `/landing/index.html`. Also pushed to GitHub: `github.com/Parsarf/ALEEV_WEB`.
-
 ## External Dependencies
 
 ### Required Services
