@@ -43,3 +43,6 @@ build = ["npm", "run", "build"]
 
 [userenv.shared]
 CRON_SECRET = "XDR+KOzEaUT47DSUYP5kVn8l6PRnhyC4MpaeNWkjK3I="
+
+[userenv.development]
+NEXTAUTH_URL = "https://65a02b5c-177a-4722-8ba7-e9bdc5e3963f-00-2d6ytxlm1mh2n.kirk.replit.dev"
