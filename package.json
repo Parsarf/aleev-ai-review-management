@@ -46,7 +46,6 @@
     "@stripe/stripe-js": "^7.9.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "@vercel/analytics": "^1.5.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.58.7",
     "class-variance-authority": "^0.7.1",
