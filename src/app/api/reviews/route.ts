@@ -160,11 +160,13 @@ export async function GET(request: NextRequest) {
       b.locations.map((l: { id: string }) => l.id),
     );
 
-    // Build where clause (Google-only)
     const where: Record<string, unknown> = {
-      platform: "GOOGLE" as const,
       locationId: { in: locationIds },
     };
+
+    if (query.platforms?.length) {
+      where.platform = { in: query.platforms };
+    }
 
     if (query.statuses) {
       where.status = { in: query.statuses };

@@ -246,12 +246,13 @@ model AuditLog {
 model Metrics {
   id        String   @id @default(cuid())
   businessId String
-  date      DateTime @unique
+  date      DateTime
   coverage  Float    @default(0)
   avgResponseTime Float @default(0)
   totalReviews Int   @default(0)
   avgRating   Float  @default(0)
   createdAt DateTime @default(now())
 
+  @@unique([businessId, date])
   @@map("metrics")
 }

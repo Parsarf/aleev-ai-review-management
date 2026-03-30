@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const businessIds = user.businesses.map((b: { id: string }) => b.id);
     const locationIds = user.businesses.flatMap((b: { locations: Array<{ id: string }> }) =>
       b.locations.map((l: { id: string }) => l.id),
     );

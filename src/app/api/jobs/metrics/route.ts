@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
         };
         
         const allReviews: ReviewWithReply[] = business.locations.flatMap(
-          (l) => (l.reviews || []) as ReviewWithReply[]
+          (loc: { reviews?: ReviewWithReply[] }) =>
+            (loc.reviews || []) as ReviewWithReply[],
         );
 
         // Calculate metrics
@@ -92,8 +93,10 @@ export async function POST(request: NextRequest) {
         // Upsert metrics record
         await prisma.metrics.upsert({
           where: {
-            businessId: business.id,
-            date: today,
+            businessId_date: {
+              businessId: business.id,
+              date: today,
+            },
           },
           update: {
             coverage,

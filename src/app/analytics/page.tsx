@@ -329,8 +329,11 @@ export default function AnalyticsPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }: any) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
+                  label={(props: {
+                    name?: string;
+                    percent?: number;
+                  }) =>
+                    `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`
                   }
                   outerRadius={80}
                   fill="#8884d8"
@@ -375,7 +378,7 @@ export default function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {data.commonIssues.map((issue, index) => (
+            {data.commonIssues.map((issue) => (
               <div
                 key={issue.keyword}
                 className="flex items-center justify-between"

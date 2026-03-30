@@ -347,8 +347,18 @@ async function main() {
 
   for (const metricData of metrics) {
     await prisma.metrics.upsert({
-      where: { id: metricData.id },
-      update: {},
+      where: {
+        businessId_date: {
+          businessId: metricData.businessId,
+          date: metricData.date,
+        },
+      },
+      update: {
+        coverage: metricData.coverage,
+        avgResponseTime: metricData.avgResponseTime,
+        totalReviews: metricData.totalReviews,
+        avgRating: metricData.avgRating,
+      },
       create: metricData,
     });
   }

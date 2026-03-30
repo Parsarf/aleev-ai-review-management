@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertTriangle,
   Clock,
@@ -29,8 +29,6 @@ import {
   Plus,
   Search,
   Filter,
-  MessageSquare,
-  User,
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -88,24 +86,61 @@ export default function TicketsPage() {
   });
   const [newComment, setNewComment] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createIssueType, setCreateIssueType] = useState("");
+  const [createSeverity, setCreateSeverity] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createReviewId, setCreateReviewId] = useState("");
+  const [reviewsForTicket, setReviewsForTicket] = useState<
+    Array<{ id: string; text: string; platform: string; ticket?: unknown }>
+  >([]);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    fetchTickets();
-  }, [filters]);
-
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      // In a real app, you'd have a tickets API endpoint
-      // For now, we'll simulate with empty data
-      setTickets([]);
+      const params = new URLSearchParams();
+      if (filters.status) params.set("status", filters.status);
+      if (filters.severity) params.set("severity", filters.severity);
+      if (filters.assignee) params.set("assignee", filters.assignee);
+      if (filters.search.trim()) params.set("search", filters.search.trim());
+
+      const response = await fetch(`/api/tickets?${params.toString()}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setTickets(data.tickets);
+      } else {
+        toast.error(data.error || "Failed to fetch tickets");
+      }
     } catch (error) {
       console.error("Error fetching tickets:", error);
       toast.error("Failed to fetch tickets");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  useEffect(() => {
+    if (!isCreateDialogOpen) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/reviews?limit=100");
+        const data = await res.json();
+        if (res.ok && data.reviews) {
+          const withoutTicket = data.reviews.filter(
+            (r: { ticket?: unknown }) => !r.ticket,
+          );
+          setReviewsForTicket(withoutTicket);
+        }
+      } catch {
+        toast.error("Could not load reviews");
+      }
+    })();
+  }, [isCreateDialogOpen]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -159,10 +194,22 @@ export default function TicketsPage() {
     }
 
     try {
-      // In a real app, you'd call the API to add a comment
-      toast.success("Comment added successfully");
-      setNewComment("");
-      fetchTickets(); // Refresh tickets
+      const response = await fetch(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comment: { text: newComment.trim() },
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Comment added successfully");
+        setNewComment("");
+        setSelectedTicket(data.ticket);
+        fetchTickets();
+      } else {
+        toast.error(data.error || "Failed to add comment");
+      }
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
@@ -171,12 +218,64 @@ export default function TicketsPage() {
 
   const updateTicketStatus = async (ticketId: string, status: string) => {
     try {
-      // In a real app, you'd call the API to update the ticket status
-      toast.success("Ticket status updated");
-      fetchTickets(); // Refresh tickets
+      const response = await fetch(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Ticket status updated");
+        setSelectedTicket(data.ticket);
+        fetchTickets();
+      } else {
+        toast.error(data.error || "Failed to update ticket status");
+      }
     } catch (error) {
       console.error("Error updating ticket status:", error);
       toast.error("Failed to update ticket status");
+    }
+  };
+
+  const createTicket = async () => {
+    if (!createReviewId || !createIssueType || !createSeverity) {
+      toast.error("Please select a review, issue type, and severity");
+      return;
+    }
+    try {
+      setCreating(true);
+      const response = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewId: createReviewId,
+          issueType: createIssueType,
+          severity: createSeverity,
+          description: createDescription.trim() || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Ticket created");
+        setIsCreateDialogOpen(false);
+        setCreateIssueType("");
+        setCreateSeverity("");
+        setCreateDescription("");
+        setCreateReviewId("");
+        setSelectedTicket(data.ticket);
+        fetchTickets();
+      } else {
+        toast.error(
+          typeof data.error === "string"
+            ? data.error
+            : "Failed to create ticket",
+        );
+      }
+    } catch (error) {
+      console.error("Error creating ticket:", error);
+      toast.error("Failed to create ticket");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -205,8 +304,37 @@ export default function TicketsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
+                <label className="text-sm font-medium">Review</label>
+                <Select
+                  value={createReviewId || undefined}
+                  onValueChange={setCreateReviewId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a review (without an existing ticket)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reviewsForTicket.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        <span className="truncate max-w-[280px]">
+                          [{r.platform}] {r.text.slice(0, 80)}
+                          {r.text.length > 80 ? "…" : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {reviewsForTicket.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No eligible reviews. All reviews may already have tickets.
+                  </p>
+                )}
+              </div>
+              <div>
                 <label className="text-sm font-medium">Issue Type</label>
-                <Select>
+                <Select
+                  value={createIssueType || undefined}
+                  onValueChange={setCreateIssueType}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select issue type" />
                   </SelectTrigger>
@@ -221,7 +349,10 @@ export default function TicketsPage() {
               </div>
               <div>
                 <label className="text-sm font-medium">Severity</label>
-                <Select>
+                <Select
+                  value={createSeverity || undefined}
+                  onValueChange={setCreateSeverity}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select severity" />
                   </SelectTrigger>
@@ -235,7 +366,12 @@ export default function TicketsPage() {
               </div>
               <div>
                 <label className="text-sm font-medium">Description</label>
-                <Textarea placeholder="Describe the issue..." rows={4} />
+                <Textarea
+                  placeholder="Describe the issue..."
+                  rows={4}
+                  value={createDescription}
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                />
               </div>
               <div className="flex justify-end space-x-2">
                 <Button
@@ -244,8 +380,8 @@ export default function TicketsPage() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={() => setIsCreateDialogOpen(false)}>
-                  Create Ticket
+                <Button onClick={createTicket} disabled={creating}>
+                  {creating ? "Creating…" : "Create Ticket"}
                 </Button>
               </div>
             </div>
