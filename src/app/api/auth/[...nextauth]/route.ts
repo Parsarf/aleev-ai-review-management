@@ -1,6 +1,18 @@
+import { NextRequest } from "next/server";
 import NextAuth from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 const handler = NextAuth(authOptions);
 
-export { handler as GET, handler as POST };
+async function authHandler(req: NextRequest, context: any) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+
+  if (host && proto) {
+    process.env.NEXTAUTH_URL = `${proto}://${host}`;
+  }
+
+  return handler(req, context);
+}
+
+export { authHandler as GET, authHandler as POST };

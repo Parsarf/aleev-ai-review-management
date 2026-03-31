@@ -6,7 +6,6 @@ import type { Adapter } from "next-auth/adapters";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
   adapter: PrismaAdapter(prisma) as Adapter,
   session: {
     strategy: "jwt",
