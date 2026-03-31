@@ -8,7 +8,7 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma) as Adapter,
   session: {
-    strategy: "database", // Use database sessions to ensure user is always available
+    strategy: "jwt",
   },
   providers: [
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -35,33 +35,29 @@ export const authOptions: NextAuthOptions = {
       : []),
   ],
   callbacks: {
-    session: async ({ session, user }) => {
-      // When using database sessions, 'user' should be provided
-      // But we need to handle cases where it might not be
-      if (session?.user) {
-        interface ExtendedUser {
-          id: string;
-          role: string;
-        }
+    jwt: async ({ token, user }) => {
+      if (user?.id) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    session: async ({ session, token }) => {
+      interface ExtendedUser {
+        id: string;
+        role: string;
+      }
 
-        // If user object is provided, use it
-        if (user?.id) {
-          (session.user as ExtendedUser).id = user.id;
-          // Fetch user role from database
-          try {
-            const dbUser = await prisma.user.findUnique({
-              where: { id: user.id },
-              select: { role: true },
-            });
-            (session.user as ExtendedUser).role = dbUser?.role || "STAFF";
-          } catch (error) {
-            console.error("Error fetching user role in session callback:", error);
-            (session.user as ExtendedUser).role = "STAFF";
-          }
-        } else {
-          // Fallback: try to get user ID from token/session
-          // This should not happen with database sessions, but handle gracefully
-          console.warn("Session callback: user object not provided", { session });
+      if (session?.user && token?.id) {
+        (session.user as ExtendedUser).id = token.id as string;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true },
+          });
+          (session.user as ExtendedUser).role = dbUser?.role || "STAFF";
+        } catch (error) {
+          console.error("Error fetching user role in session callback:", error);
+          (session.user as ExtendedUser).role = "STAFF";
         }
       }
       return session;

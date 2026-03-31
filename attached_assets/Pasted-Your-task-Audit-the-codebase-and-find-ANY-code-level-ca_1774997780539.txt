@@ -1,0 +1,103 @@
+Your task
+
+Audit the codebase and find ANY code-level cause of this auth loop.
+
+Check these areas very strictly
+
+1. Middleware
+
+Inspect src/middleware.ts or any middleware/auth guard.
+Look for:
+	•	withAuth
+	•	getToken
+	•	NextResponse.redirect
+	•	matcher
+	•	protection of /auth/signin
+	•	protection of auth callback routes
+	•	logic that redirects logged-out users back to sign-in
+	•	logic that might incorrectly treat logged-in users as logged out
+
+Flag any matcher or redirect logic that could cause a loop.
+
+2. NextAuth config
+
+Inspect:
+	•	src/app/api/auth/[...nextauth]/route.ts
+	•	or any file exporting auth options
+
+Look for:
+	•	callbacks
+	•	jwt
+	•	session
+	•	pages
+	•	redirect
+	•	authorized
+	•	cookies
+	•	custom providers
+	•	any code that returns null, undefined, or malformed session/token values
+	•	any code that depends on env vars or request headers for URL generation
+	•	any callback that could prevent the session from persisting
+
+3. Login page
+
+Inspect the sign-in page/component.
+Look for:
+	•	signIn("google")
+	•	callbackUrl
+	•	router.push
+	•	redirect()
+	•	any logic that auto-redirects back to sign-in
+	•	any use of useSession() that could bounce the user incorrectly
+
+4. Protected pages / layouts
+
+Inspect:
+	•	/inbox
+	•	dashboard layout
+	•	root layout
+	•	any auth wrapper / route guard
+
+Look for:
+	•	getServerSession
+	•	auth()
+	•	redirect("/auth/signin")
+	•	checks for session/token/user
+	•	imports of auth options from the wrong file
+	•	any code that assumes session fields exist when they may not
+
+5. Session persistence
+
+Check for anything that could prevent NextAuth cookies/session from sticking:
+	•	wrong cookie config
+	•	custom cookie names/options
+	•	secure/sameSite settings
+	•	production vs dev differences
+	•	mismatched domain handling
+	•	secret/session strategy issues
+
+6. Callback URL flow
+
+Trace the full post-login flow:
+	•	where Google returns
+	•	where NextAuth redirects next
+	•	how /inbox is protected
+	•	where the loop begins
+
+Required output format
+
+Give me:
+	1.	Root cause(s) ranked by likelihood
+	2.	Exact file path(s) involved
+	3.	Exact suspicious code snippet(s)
+	4.	Why each issue causes the loop
+	5.	Exact code fix for each issue
+	6.	Minimal safest fix first
+	7.	If you are not fully certain, say what is confirmed vs inferred
+
+Important
+
+Be extremely strict.
+Do not give generic OAuth advice.
+Do not repeat setup steps unless they are directly tied to a code bug.
+Assume the issue is now inside the codebase unless proven otherwise.
+Flag even small redirect/session mistakes that could create an auth loop.
