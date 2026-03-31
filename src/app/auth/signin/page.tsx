@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,7 +11,6 @@ import { Loader2 } from "lucide-react";
 function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/inbox";
 
@@ -27,13 +26,15 @@ function SignInForm() {
 
       if (result?.error) {
         setError("Failed to sign in. Please try again.");
-      } else if (result?.ok) {
-        router.push(from);
+        setLoading(false);
+      } else if (result?.url) {
+        // Navigate the top-level window so Google OAuth works even inside an iframe
+        const target = window.top ?? window;
+        target.location.href = result.url;
       }
-    } catch (error) {
-      console.error("Sign in error:", error);
+    } catch (err) {
+      console.error("Sign in error:", err);
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
