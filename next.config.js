@@ -7,6 +7,13 @@ const assetPrefix = isDev && process.env.REPLIT_DEV_DOMAIN
   ? `https://${process.env.REPLIT_DEV_DOMAIN}:5000`
   : undefined
 
+// Auto-set NEXTAUTH_URL for the dev environment so it matches the Replit
+// preview domain. In production (NODE_ENV=production), the NEXTAUTH_URL
+// secret is used as-is (should be set to https://raouparsa.repl.co).
+if (isDev && process.env.REPLIT_DEV_DOMAIN) {
+  process.env.NEXTAUTH_URL = `https://${process.env.REPLIT_DEV_DOMAIN}`
+}
+
 const nextConfig = {
   serverExternalPackages: ['@prisma/client'],
   allowedDevOrigins: ['*.replit.dev', '*.kirk.replit.dev', '*.repl.co'],
