@@ -1,0 +1,253 @@
+:::writing{variant=“standard” id=“28461”}
+You are a senior authentication/debugging engineer specializing in Next.js App Router, NextAuth/Auth.js, OAuth, middleware, cookies, and production deployment issues.
+
+I need you to do a deep forensic debugging pass on my codebase and identify the exact reason my app enters an infinite login loop after successful Google sign-in.
+
+Current status
+
+I already fixed the original Google OAuth redirect_uri_mismatch issue.
+The Google login flow now appears to complete successfully.
+However, after login, the app redirects back to the sign-in page and loops forever.
+
+Observed behavior
+	•	App is deployed on Replit
+	•	Production domain:
+https://aleev-ai-review-management.replit.app
+	•	Login page eventually shows a URL pattern like:
+/auth/signin?callbackUrl=https%3A%2F%2Faleev-ai-review-management.replit.app%2Finbox...
+	•	After successful Google login, instead of staying logged in and entering the app, it goes back to sign-in again
+	•	I tested in incognito mode too, and the loop still happens
+	•	So this is NOT just stale cookies
+
+Important previous history
+	•	There WAS a real earlier bug involving Google OAuth redirect URIs
+	•	There WAS also a real suspected issue involving session strategy mismatch:
+	•	middleware used getToken()
+	•	session strategy had been set to "database"
+	•	this was later changed to "jwt"
+	•	The app was republished after code changes
+	•	But the login loop still continues
+	•	That means either:
+	1.	the JWT/session fix was incomplete
+	2.	another auth guard / middleware / route-level bug still exists
+	3.	a secret/session/cookie mismatch is still preventing auth recognition
+	4.	a protected page is redirecting back to sign-in incorrectly
+	5.	sign-in page itself is causing part of the loop
+	6.	middleware matcher or callback logic is wrong
+	7.	production runtime behavior differs from dev behavior
+
+Your task
+
+Do a deep code audit and trace the login flow request-by-request.
+
+I do NOT want generic advice.
+I want you to inspect the actual code and identify the precise loop path.
+
+Trace the flow end-to-end
+
+I want you to follow this exact chain:
+	1.	User lands on sign-in page
+	2.	User clicks Google sign-in
+	3.	Google OAuth completes
+	4.	NextAuth callback runs
+	5.	Session/JWT/cookies are generated
+	6.	User is redirected to callback destination (likely /inbox)
+	7.	Middleware runs
+	8.	Protected page/layout runs
+	9.	Something decides user is unauthenticated and sends them back to sign-in
+	10.	Loop repeats
+
+Your job is to determine exactly where that chain breaks.
+
+Inspect these areas in extreme detail
+
+1. Middleware
+
+Inspect src/middleware.ts or any other middleware/auth guard.
+
+Check for:
+	•	getToken()
+	•	withAuth
+	•	NextResponse.redirect
+	•	matcher
+	•	route exclusions/inclusions
+	•	whether /auth/signin is protected
+	•	whether /api/auth is protected
+	•	whether /inbox is protected
+	•	whether middleware reads the correct secret
+	•	whether middleware expects JWT while auth uses something else
+	•	whether middleware can read the session token cookie in production
+	•	whether middleware redirects even when token exists
+	•	whether middleware is running on routes it should not run on
+
+2. NextAuth/Auth.js config
+
+Inspect:
+	•	src/app/api/auth/[...nextauth]/route.ts
+	•	src/lib/auth.ts
+	•	any shared auth config files
+
+Check for:
+	•	session.strategy
+	•	jwt
+	•	session
+	•	redirect
+	•	pages
+	•	cookies
+	•	trustHost
+	•	secret
+	•	adapter
+	•	authorized
+	•	provider config
+	•	custom callbacks
+	•	custom cookie config
+	•	custom host/header logic
+	•	any use of request headers to build callback URLs
+	•	any mismatch between middleware expectations and auth config
+
+I want confirmation of:
+	•	whether the app is truly using JWT strategy now
+	•	whether the jwt callback stores the necessary fields
+	•	whether the session callback rebuilds session.user correctly
+	•	whether the sign-in route and callback route use the same secret/config as middleware
+
+3. Login page and sign-in trigger
+
+Inspect sign-in page/component.
+
+Check for:
+	•	signIn("google")
+	•	callbackUrl
+	•	router.push
+	•	redirect()
+	•	useSession()
+	•	automatic redirects
+	•	code that sends already authenticated users away
+	•	code that might force users back to sign-in on session loading failure
+	•	any callback URL override pointing to a page that causes the loop
+
+4. Protected pages and layouts
+
+Inspect:
+	•	/inbox
+	•	dashboard layout
+	•	root layout
+	•	route groups
+	•	auth wrappers
+	•	server components that redirect if session is missing
+	•	client components that redirect if session is missing
+	•	helper functions like requireAuth(), auth(), getServerSession()
+
+Check for:
+	•	imports from old auth config
+	•	wrong auth helper usage
+	•	checks against malformed/empty session
+	•	assumptions like session.user.id existing when jwt/session callback fails to populate it
+	•	any redirect to /auth/signin that may be firing even when auth succeeded
+
+5. Cookie/session persistence
+
+Check anything that would cause login to succeed but not persist:
+	•	cookie names/options
+	•	sameSite
+	•	secure
+	•	domain
+	•	custom cookie config
+	•	production host mismatch
+	•	secret mismatch
+	•	JWT decode/encode issues
+	•	middleware token read failure
+	•	use of edge runtime affecting auth
+	•	differences between server and middleware environments
+
+6. Session strategy migration leftovers
+
+Because this app previously used "database" sessions and switched to "jwt", check carefully for leftover code that still assumes database sessions.
+
+Look for:
+	•	middleware using getToken()
+	•	protected routes using server session logic from old pattern
+	•	callbacks expecting user instead of token
+	•	logic dependent on adapter/database session rows
+	•	session callback shape mismatch after switching strategies
+	•	any auth helper that became incompatible after the switch
+
+7. Route matcher and auth page exclusion
+
+Specifically verify whether middleware matcher accidentally includes:
+	•	/auth/signin
+	•	/api/auth
+	•	NextAuth callback endpoints
+	•	static assets
+	•	login route itself
+
+If middleware redirects the login page or callback route, that can create a loop.
+
+8. Production-only behavior
+
+Since this is on Replit production, inspect anything that might differ between dev and prod:
+	•	host detection
+	•	forwarded headers
+	•	NEXTAUTH_URL
+	•	request host derivation
+	•	trustHost
+	•	secure cookies only in prod
+	•	publish/republish behavior
+	•	environment variables vs code overrides
+
+Required output format
+
+Give me a full structured answer with these sections:
+
+A. Most likely root cause(s), ranked
+
+Rank from most likely to least likely.
+
+B. Exact loop path
+
+Describe the precise request/redirect path causing the loop.
+
+C. Exact files involved
+
+List exact file paths.
+
+D. Exact suspicious code
+
+Quote the exact code snippets.
+
+E. Why each snippet causes the loop
+
+Be explicit about cause and effect.
+
+F. Exact code fix
+
+Show the corrected code or minimal patch.
+
+G. Minimal safest fix first
+
+If there are multiple possible fixes, tell me the smallest correct one to try first.
+
+H. Confirmed vs inferred
+
+Separate what is directly proven by code from what is your inference.
+
+Important constraints
+	•	Do NOT give generic OAuth setup steps
+	•	Do NOT repeat prior redirect URI advice unless directly relevant to current code
+	•	Assume the problem is now in the app code or runtime configuration unless proven otherwise
+	•	Be extremely strict about small issues
+	•	Trace the actual control flow
+	•	Look for more than one bug if needed
+
+Extra debugging objective
+
+If the code does not make the cause obvious, propose the smallest temporary debug instrumentation to add, such as:
+	•	log whether getToken() is null in middleware
+	•	log session result on /inbox
+	•	log JWT/session callback contents
+	•	log route matcher hits
+
+But only after first auditing the code for static bugs.
+
+I want a real forensic diagnosis, not general suggestions.
+:::

@@ -26,6 +26,7 @@ export default withAuth(
     }
   },
   {
+    secret: process.env.NEXTAUTH_SECRET,
     callbacks: {
       authorized: ({ token, req }) => {
         const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
