@@ -45,4 +45,4 @@ build = ["npm", "run", "build"]
 CRON_SECRET = "XDR+KOzEaUT47DSUYP5kVn8l6PRnhyC4MpaeNWkjK3I="
 
 [userenv.development]
-NEXTAUTH_URL = "aleev-ai-review-management.replit.app"
+NEXTAUTH_URL = "https://aleev-ai-review-management.replit.app"
