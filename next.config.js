@@ -1,17 +1,9 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== 'production'
 
-// In Replit dev, force assets to load via the direct port-5000 URL so
-// chunk requests are not intercepted/dropped by the Replit proxy layer.
-const assetPrefix = isDev && process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}:5000`
-  : undefined
-
-
 const nextConfig = {
   serverExternalPackages: ['@prisma/client'],
   allowedDevOrigins: ['*.replit.dev', '*.kirk.replit.dev', '*.repl.co'],
-  assetPrefix,
   images: {
     domains: ['images.unsplash.com', 'lh3.googleusercontent.com']
   },
