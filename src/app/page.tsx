@@ -20,7 +20,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/inbox");
+      router.replace("/inbox");
     }
   }, [status, router]);
 

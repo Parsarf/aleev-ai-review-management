@@ -1,0 +1,143 @@
+🔴 PRIMARY ISSUE: Dynamic NEXTAUTH_URL in Callback Handler
+
+  Location: src/app/api/auth/[...nextauth]/route.ts:8-13
+
+  async function authHandler(req: NextRequest, context: any) {
+    const host = req.headers.get("x-forwarded-host") ||
+  req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+
+    if (host && proto) {
+      process.env.NEXTAUTH_URL = `${proto}://${host}`;  // ⚠️ PROBLEMATIC
+    }
+    return handler(req, context);
+  }
+
+  Why this causes loops:
+  - NextAuth calculates callback URLs and cookie domains based on
+  NEXTAUTH_URL
+  - Dynamically changing this value between requests creates inconsistencies
+  - If headers differ between the initial OAuth request and the callback
+  request, NextAuth can't match them
+  - The session cookie might be set for the wrong domain or path
+  - User ends up back at login page without a valid session → loop
+
+  ---
+  🟡 SECONDARY ISSUE: Manual Redirect in Sign-in Page
+
+  Location: src/app/auth/signin/page.tsx:22-34
+
+  const result = await signIn("google", {
+    redirect: false,
+    callbackUrl: from,
+  });
+
+  if (result?.url) {
+    const target = window.top ?? window;
+    target.location.href = result.url;  // Manual redirect
+  }
+
+  Why this could contribute:
+  - Using redirect: false bypasses NextAuth's automatic redirect handling
+  - If result.url is undefined or malformed, the redirect fails silently
+  - The manual window.top navigation might not work correctly in all
+  contexts
+
+  ---
+  🟡 ADDITIONAL ISSUE: Root Page Redirect Race Condition
+
+  Location: src/app/page.tsx:21-25
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/inbox");
+    }
+  }, [status, router]);
+
+  Why this could contribute:
+  - If the session isn't fully established when this runs, it could cause
+  unexpected behavior
+  - Combined with middleware redirects, could create timing issues
+
+  ---
+  ⚙️ Configuration Issues
+
+  1. No explicit cookie configuration in src/lib/auth.ts
+  2. JWT session strategy (line 11-12) is fine, but there's no cookie
+  domain/path configuration
+  3. NEXTAUTH_URL is set in .replit but gets overridden at runtime
+
+  ---
+  🔧 Recommended Fixes (in order of priority)
+
+  Fix 1: Remove Dynamic NEXTAUTH_URL Setting (CRITICAL)
+
+  The NEXTAUTH_URL should be static and set via environment variables only.
+  Remove the dynamic setting from the route handler:
+
+  In src/app/api/auth/[...nextauth]/route.ts, change to:
+  import { NextRequest } from "next/server";
+  import NextAuth from "next-auth";
+  import { authOptions } from "@/lib/auth";
+
+  const handler = NextAuth(authOptions);
+
+  export { handler as GET, handler as POST };
+
+  Make sure your production environment has NEXTAUTH_URL set correctly in
+  environment variables (not dynamically).
+
+  ---
+  Fix 2: Use Standard NextAuth Redirect
+
+  In src/app/auth/signin/page.tsx, simplify the sign-in:
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      // Let NextAuth handle the redirect automatically
+      await signIn("google", {
+        callbackUrl: from,
+      });
+    } catch (err) {
+      console.error("Sign in error:", err);
+      setError("An unexpected error occurred. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  ---
+  Fix 3: Add Explicit Cookie Configuration
+
+  In src/lib/auth.ts, add cookie configuration:
+  export const authOptions: NextAuthOptions = {
+    secret: process.env.NEXTAUTH_SECRET,
+    adapter: PrismaAdapter(prisma) as Adapter,
+    session: {
+      strategy: "jwt",
+    },
+    cookies: {
+      sessionToken: {
+        name: `next-auth.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+          secure: process.env.NODE_ENV === 'production'
+        }
+      }
+    },
+    // ... rest of config
+  };
+
+  ---
+  Fix 4: Verify Environment Variables
+
+  Ensure these are set correctly in your production environment:
+  - NEXTAUTH_URL: Should match your exact production domain (e.g.,
+  https://aleev-ai-review-management.replit.app)
+  - NEXTAUTH_SECRET: Must be set and consistent
+  - Google OAuth redirect URIs must include:
+    - https://aleev-ai-review-management.replit.app/api/auth/callback/google
+

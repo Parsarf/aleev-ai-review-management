@@ -27,6 +27,11 @@ export default withAuth(
   },
   {
     secret: process.env.NEXTAUTH_SECRET,
+    cookies: {
+      sessionToken: {
+        name: "next-auth.session-token",
+      },
+    },
     callbacks: {
       authorized: ({ token, req }) => {
         const isAuthPage = req.nextUrl.pathname.startsWith("/auth");

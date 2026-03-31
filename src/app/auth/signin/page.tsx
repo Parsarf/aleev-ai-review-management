@@ -8,30 +8,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  Callback: "Sign-in failed. Please try again.",
+  OAuthSignin: "Could not start Google sign-in. Please try again.",
+  OAuthCallback: "Error during Google sign-in callback. Please try again.",
+  OAuthCreateAccount: "Could not create your account. Please try again.",
+  EmailCreateAccount: "Could not create your account. Please try again.",
+  SessionRequired: "Please sign in to access this page.",
+  Default: "An error occurred during sign-in. Please try again.",
+};
+
 function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const searchParams = useSearchParams();
-  const from = searchParams.get("from") || "/inbox";
+
+  const from =
+    searchParams.get("from") ||
+    searchParams.get("callbackUrl") ||
+    "/inbox";
+
+  const urlError = searchParams.get("error");
+  const displayError = error ||
+    (urlError ? (ERROR_MESSAGES[urlError] ?? ERROR_MESSAGES.Default) : "");
 
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const result = await signIn("google", {
-        redirect: false,
+      await signIn("google", {
         callbackUrl: from,
       });
-
-      if (result?.error) {
-        setError("Failed to sign in. Please try again.");
-        setLoading(false);
-      } else if (result?.url) {
-        // Navigate the top-level window so Google OAuth works even inside an iframe
-        const target = window.top ?? window;
-        target.location.href = result.url;
-      }
     } catch (err) {
       console.error("Sign in error:", err);
       setError("An unexpected error occurred. Please try again.");
@@ -59,9 +67,9 @@ function SignInForm() {
             <CardTitle className="text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
+            {displayError && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{displayError}</AlertDescription>
               </Alert>
             )}
 
