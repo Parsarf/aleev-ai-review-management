@@ -133,7 +133,7 @@ export default function InboxPage() {
       });
       if (response.ok) {
         toast.success("Business created! Welcome to Aleev.");
-        setHasBusiness(true);
+        window.location.reload();
       } else {
         const data = await response.json();
         toast.error(data.error || "Failed to create business");

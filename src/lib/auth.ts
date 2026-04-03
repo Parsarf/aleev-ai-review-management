@@ -48,6 +48,18 @@ export const authOptions: NextAuthOptions = {
   events: {
     createUser: async ({ user }) => {
       try {
+        // Idempotency guard — createUser should only fire once, but be safe
+        const existingBusiness = await prisma.business.findFirst({
+          where: { ownerId: user.id },
+        });
+        if (existingBusiness) {
+          console.log(
+            "[NextAuth] createUser — business already exists for user:",
+            user.id,
+          );
+          return;
+        }
+
         const businessName =
           user.name || user.email?.split("@")[0] || "My Business";
 

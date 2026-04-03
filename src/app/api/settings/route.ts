@@ -231,6 +231,17 @@ async function createBusinessAction(body: any, userId: string) {
     );
   }
 
+  // Idempotency guard — prevent duplicate businesses from double-submit
+  const existing = await prisma.business.findFirst({
+    where: { ownerId: userId },
+  });
+  if (existing) {
+    return NextResponse.json(
+      { error: "A business already exists for this account" },
+      { status: 409 },
+    );
+  }
+
   const business = await prisma.business.create({
     data: {
       name,
