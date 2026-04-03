@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev -p 5000 -H 0.0.0.0",
     "build": "prisma generate && next build",
-    "build:deploy": "prisma generate && prisma migrate resolve --applied 20260328001546_initial_schema; prisma migrate deploy && next build",
+    "build:deploy": "prisma generate && prisma migrate deploy && next build",
     "start": "next start -p 5000 -H 0.0.0.0",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
