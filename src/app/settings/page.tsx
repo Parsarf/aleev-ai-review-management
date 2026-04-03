@@ -101,6 +101,10 @@ export default function SettingsPage() {
   const [googleLocations, setGoogleLocations] = useState<GoogleLocation[]>([]);
   const [selectedGoogleAccount, setSelectedGoogleAccount] =
     useState<GoogleAccount | null>(null);
+  // Which Prisma location row to link Google to (defaults to first)
+  const [selectedConnectLocationId, setSelectedConnectLocationId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     fetchSettings();
@@ -119,6 +123,9 @@ export default function SettingsPage() {
           setBusinessName(data.businesses[0].name);
           setBrandRules(data.businesses[0].brandRules || "");
           setTone(data.businesses[0].tone || "professional");
+          if (data.businesses[0].locations?.length > 0) {
+            setSelectedConnectLocationId(data.businesses[0].locations[0].id);
+          }
         }
       } else {
         toast.error("Failed to fetch settings");
@@ -195,7 +202,8 @@ export default function SettingsPage() {
     }
   };
 
-  const startGoogleConnect = async () => {
+  const startGoogleConnect = async (locationId: string) => {
+    setSelectedConnectLocationId(locationId);
     setGoogleConnectStep("loadingAccounts");
     try {
       const res = await fetch("/api/integrations/google/accounts");
@@ -240,7 +248,10 @@ export default function SettingsPage() {
 
   const pickGoogleLocation = async (location: GoogleLocation) => {
     if (!selectedBusiness || !selectedGoogleAccount) return;
-    const targetLocation = selectedBusiness.locations[0];
+    const targetLocation =
+      selectedBusiness.locations.find(
+        (l) => l.id === selectedConnectLocationId,
+      ) || selectedBusiness.locations[0];
     if (!targetLocation) {
       toast.error("No location found to link");
       setGoogleConnectStep("idle");
@@ -298,6 +309,7 @@ export default function SettingsPage() {
     setGoogleAccounts([]);
     setGoogleLocations([]);
     setSelectedGoogleAccount(null);
+    setSelectedConnectLocationId(null);
   };
 
   const disconnectGoogle = async () => {
@@ -362,8 +374,6 @@ export default function SettingsPage() {
 
   const googleConnection = getGoogleConnectionState();
   const isGoogleConnected = !!googleConnection;
-  const isGoogleBusy =
-    googleConnectStep !== "idle" && googleConnectStep !== "saving";
 
   return (
     <div className="space-y-6">
@@ -533,9 +543,37 @@ export default function SettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Location selector — shown when a business has multiple locations */}
+              {selectedBusiness && selectedBusiness.locations.length > 1 && (
+                <div className="pb-2 border-b">
+                  <Label htmlFor="connectLocation" className="text-sm">
+                    Connect integrations to location
+                  </Label>
+                  <Select
+                    value={selectedConnectLocationId || ""}
+                    onValueChange={setSelectedConnectLocationId}
+                  >
+                    <SelectTrigger id="connectLocation" className="mt-1 w-64">
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedBusiness.locations.map((loc) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {PLATFORM_DEFS.map(({ platform, supported }) => {
                 const isGoogle = platform === "Google";
                 const connected = isGoogle ? isGoogleConnected : false;
+                const connectLocationId =
+                  selectedConnectLocationId ||
+                  selectedBusiness?.locations[0]?.id ||
+                  "";
 
                 return (
                   <div
@@ -590,12 +628,10 @@ export default function SettingsPage() {
                       ) : (
                         <Button
                           size="sm"
-                          onClick={startGoogleConnect}
-                          disabled={
-                            googleConnectStep !== "idle" &&
-                            googleConnectStep !== "pickAccount" &&
-                            googleConnectStep !== "pickLocation"
+                          onClick={() =>
+                            startGoogleConnect(connectLocationId)
                           }
+                          disabled={googleConnectStep !== "idle"}
                         >
                           {googleConnectStep === "loadingAccounts" ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-1" />
@@ -610,22 +646,29 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {googleConnectStep === "pickAccount" && googleAccounts.length > 0 && (
+          {googleConnectStep === "pickAccount" && (
             <Card>
               <CardHeader>
                 <CardTitle>Select a Google Business Account</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {googleAccounts.map((account) => (
-                  <button
-                    key={account.name}
-                    className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => pickGoogleAccount(account)}
-                  >
-                    <p className="font-medium">{account.accountName}</p>
-                    <p className="text-sm text-gray-500">{account.name}</p>
-                  </button>
-                ))}
+                {googleAccounts.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2">
+                    No Google Business accounts found. Make sure you have access
+                    to a Google Business Profile.
+                  </p>
+                ) : (
+                  googleAccounts.map((account) => (
+                    <button
+                      key={account.name}
+                      className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => pickGoogleAccount(account)}
+                    >
+                      <p className="font-medium">{account.accountName}</p>
+                      <p className="text-sm text-gray-500">{account.name}</p>
+                    </button>
+                  ))
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -650,14 +693,19 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {googleConnectStep === "pickLocation" &&
-            googleLocations.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Select a Location</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {googleLocations.map((loc) => (
+          {googleConnectStep === "pickLocation" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select a Location</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {googleLocations.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2">
+                    No locations found under this account. Try selecting a
+                    different account.
+                  </p>
+                ) : (
+                  googleLocations.map((loc) => (
                     <button
                       key={loc.name}
                       className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -676,18 +724,19 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={cancelGoogleConnect}
-                  >
-                    Cancel
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+                  ))
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={cancelGoogleConnect}
+                >
+                  Cancel
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {googleConnectStep === "saving" && (
             <Card>
