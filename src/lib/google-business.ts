@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 
 export interface GoogleBusinessReview {
-  name: string; // Full resource name (e.g., "accounts/123/locations/456/reviews/789")
+  name: string;
   reviewId: string;
   reviewer: {
     profilePhotoUrl?: string;
@@ -18,7 +18,7 @@ export interface GoogleBusinessReview {
 }
 
 export interface GoogleBusinessLocation {
-  name: string; // Full resource name
+  name: string;
   locationName: string;
   primaryPhone?: string;
   address?: {
@@ -27,6 +27,13 @@ export interface GoogleBusinessLocation {
     administrativeArea?: string;
     postalCode?: string;
   };
+}
+
+export interface GoogleBusinessAccount {
+  name: string;
+  accountName: string;
+  type?: string;
+  verificationState?: string;
 }
 
 // Convert Google star rating enum to number
@@ -42,16 +49,36 @@ function starRatingToNumber(rating: string): number {
 }
 
 /**
- * Initialize Google My Business API client
+ * List Google Business accounts for a user using their stored OAuth token.
  */
-export function getGoogleBusinessClient(accessToken: string) {
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: accessToken });
+export async function getGoogleAccounts(
+  accessToken: string,
+): Promise<GoogleBusinessAccount[]> {
+  const res = await fetch(
+    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
 
-  return google.mybusinessbusinessinformation({
-    version: "v1",
-    auth: oauth2Client,
-  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("[getGoogleAccounts] HTTP error:", res.status, errBody);
+    throw new Error(
+      `Failed to list Google Business accounts: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  const data = await res.json();
+  return (data.accounts || []).map((a: any) => ({
+    name: a.name,
+    accountName: a.accountName || a.name,
+    type: a.type,
+    verificationState: a.verificationState,
+  }));
 }
 
 /**
@@ -95,7 +122,7 @@ export async function getGoogleLocations(
 }
 
 /**
- * Fetch reviews for a Google Business location
+ * Fetch reviews for a Google Business location using the v4 Reviews API.
  */
 export async function fetchGoogleReviews(
   accessToken: string,
@@ -110,52 +137,40 @@ export async function fetchGoogleReviews(
   url?: string;
   createdAt: Date;
 }[]> {
-  try {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
+  const parent = `accounts/${accountId}/locations/${locationId}`;
+  const url = `https://mybusiness.googleapis.com/v4/${parent}/reviews`;
 
-    const mybusiness = google.mybusinessaccountmanagement({
-      version: "v1",
-      auth: oauth2Client,
-    });
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
 
-    // Note: As of 2024, the Google My Business API v4.9 is deprecated
-    // You may need to use the new Business Profile Performance API
-    // For now, we'll use the accountmanagement API for reviews
-
-    // Construct the parent resource name
-    const parent = `accounts/${accountId}/locations/${locationId}`;
-
-    // In the real implementation, you would call the reviews.list endpoint
-    // However, this requires the correct API version and permissions
-
-    // For demonstration, here's the structure:
-    const reviews: GoogleBusinessReview[] = [];
-
-    // Note: The actual API call would be:
-    // const response = await mybusiness.accounts.locations.reviews.list({
-    //   parent: parent,
-    // });
-    // reviews = response.data.reviews || [];
-
-    // Transform to our format
-    return reviews.map((review) => ({
-      platformId: review.reviewId || review.name,
-      stars: starRatingToNumber(review.starRating),
-      text: review.comment || "",
-      authorName: review.reviewer?.displayName,
-      authorAvatar: review.reviewer?.profilePhotoUrl,
-      url: `https://www.google.com/maps/reviews?q=${locationId}`,
-      createdAt: new Date(review.createTime),
-    }));
-  } catch (error) {
-    console.error("Error fetching Google reviews:", error);
-    throw new Error("Failed to fetch reviews from Google Business Profile");
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("[fetchGoogleReviews] HTTP error:", res.status, errBody);
+    throw new Error(
+      `Failed to fetch reviews from Google Business Profile: ${res.status} ${res.statusText}`,
+    );
   }
+
+  const data = await res.json();
+  const reviews: GoogleBusinessReview[] = data.reviews || [];
+
+  return reviews.map((review) => ({
+    platformId: review.reviewId || review.name,
+    stars: starRatingToNumber(review.starRating),
+    text: review.comment || "",
+    authorName: review.reviewer?.displayName,
+    authorAvatar: review.reviewer?.profilePhotoUrl,
+    url: `https://www.google.com/maps/reviews?q=${locationId}`,
+    createdAt: new Date(review.createTime),
+  }));
 }
 
 /**
- * Post a reply to a Google Business review
+ * Post a reply to a Google Business review using the v4 Reviews API.
  */
 export async function postGoogleReply(
   accessToken: string,
@@ -165,29 +180,33 @@ export async function postGoogleReply(
   replyText: string,
 ): Promise<boolean> {
   try {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
+    // reviewName may be the short review ID or the full resource name.
+    // Normalise to the full resource name expected by the v4 API.
+    const fullName = reviewName.startsWith("accounts/")
+      ? reviewName
+      : `accounts/${accountId}/locations/${locationId}/reviews/${reviewName}`;
 
-    const mybusiness = google.mybusinessaccountmanagement({
-      version: "v1",
-      auth: oauth2Client,
+    const url = `https://mybusiness.googleapis.com/v4/${fullName}/reply`;
+
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ comment: replyText }),
     });
 
-    // In the real implementation, you would call the reply endpoint
-    // const response = await mybusiness.accounts.locations.reviews.updateReply({
-    //   name: `${reviewName}/reply`,
-    //   requestBody: {
-    //     comment: replyText,
-    //   },
-    // });
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error("[postGoogleReply] HTTP error:", res.status, errBody);
+      return false;
+    }
 
-    console.log(
-      `Would post reply to review ${reviewName}: ${replyText.substring(0, 50)}...`,
-    );
     return true;
   } catch (error) {
     console.error("Error posting Google reply:", error);
-    throw new Error("Failed to post reply to Google Business Profile");
+    return false;
   }
 }
 
@@ -199,7 +218,6 @@ export async function refreshGoogleToken(refreshToken: string): Promise<{
   expires_in: number;
 }> {
   try {
-    // Normalize NEXTAUTH_URL — always ensure https:// prefix, no trailing slash
     const rawUrl = (process.env.NEXTAUTH_URL || "").replace(/\/+$/, "");
     const baseUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
     const oauth2Client = new google.auth.OAuth2(

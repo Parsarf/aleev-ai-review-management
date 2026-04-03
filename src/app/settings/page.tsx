@@ -20,12 +20,12 @@ import {
   Building2,
   MapPin,
   Settings as SettingsIcon,
-  Shield,
   Link,
   Plus,
   Trash2,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,12 +42,41 @@ interface Business {
   }>;
 }
 
-interface PlatformConnection {
+interface PlatformDef {
   platform: string;
-  connected: boolean;
-  accountName?: string;
-  lastSync?: string;
+  supported: boolean;
 }
+
+const PLATFORM_DEFS: PlatformDef[] = [
+  { platform: "Google", supported: true },
+  { platform: "Yelp", supported: false },
+  { platform: "Facebook", supported: false },
+  { platform: "TripAdvisor", supported: false },
+];
+
+interface GoogleAccount {
+  name: string;
+  accountName: string;
+}
+
+interface GoogleLocation {
+  name: string;
+  locationName: string;
+  address?: {
+    addressLines?: string[];
+    locality?: string;
+    administrativeArea?: string;
+    postalCode?: string;
+  };
+}
+
+type ConnectStep =
+  | "idle"
+  | "loadingAccounts"
+  | "pickAccount"
+  | "loadingLocations"
+  | "pickLocation"
+  | "saving";
 
 export default function SettingsPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -57,26 +86,21 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Form states
   const [businessName, setBusinessName] = useState("");
   const [brandRules, setBrandRules] = useState("");
   const [tone, setTone] = useState("professional");
   const [autoSendThreshold, setAutoSendThreshold] = useState(4);
   const [crisisAlerts, setCrisisAlerts] = useState(true);
 
-  // Location form states
   const [locationName, setLocationName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
 
-  // Platform connections
-  const [platformConnections, setPlatformConnections] = useState<
-    PlatformConnection[]
-  >([
-    { platform: "Google", connected: false },
-    { platform: "Yelp", connected: false },
-    { platform: "Facebook", connected: false },
-    { platform: "TripAdvisor", connected: false },
-  ]);
+  const [googleConnectStep, setGoogleConnectStep] =
+    useState<ConnectStep>("idle");
+  const [googleAccounts, setGoogleAccounts] = useState<GoogleAccount[]>([]);
+  const [googleLocations, setGoogleLocations] = useState<GoogleLocation[]>([]);
+  const [selectedGoogleAccount, setSelectedGoogleAccount] =
+    useState<GoogleAccount | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -109,14 +133,11 @@ export default function SettingsPage() {
 
   const saveBusinessSettings = async () => {
     if (!selectedBusiness) return;
-
     try {
       setSaving(true);
       const response = await fetch("/api/settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "updateBusiness",
           businessId: selectedBusiness.id,
@@ -125,10 +146,9 @@ export default function SettingsPage() {
           tone,
         }),
       });
-
       if (response.ok) {
         toast.success("Settings saved successfully");
-        fetchSettings(); // Refresh data
+        fetchSettings();
       } else {
         const error = await response.json();
         toast.error(error.error || "Failed to save settings");
@@ -146,14 +166,11 @@ export default function SettingsPage() {
       toast.error("Please enter a location name");
       return;
     }
-
     try {
       setSaving(true);
       const response = await fetch("/api/settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "createLocation",
           businessId: selectedBusiness.id,
@@ -161,12 +178,11 @@ export default function SettingsPage() {
           address: locationAddress,
         }),
       });
-
       if (response.ok) {
         toast.success("Location added successfully");
         setLocationName("");
         setLocationAddress("");
-        fetchSettings(); // Refresh data
+        fetchSettings();
       } else {
         const error = await response.json();
         toast.error(error.error || "Failed to add location");
@@ -179,42 +195,147 @@ export default function SettingsPage() {
     }
   };
 
-  const connectPlatform = async (platform: string) => {
-    // In a real app, this would initiate OAuth flow
-    toast.info(`Connecting to ${platform}...`);
-
-    // Simulate connection
-    setTimeout(() => {
-      setPlatformConnections((prev) =>
-        prev.map((p) =>
-          p.platform === platform
-            ? {
-                ...p,
-                connected: true,
-                accountName: "Connected Account",
-                lastSync: new Date().toISOString(),
-              }
-            : p,
-        ),
-      );
-      toast.success(`Connected to ${platform} successfully`);
-    }, 2000);
+  const startGoogleConnect = async () => {
+    setGoogleConnectStep("loadingAccounts");
+    try {
+      const res = await fetch("/api/integrations/google/accounts");
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to load Google accounts");
+        setGoogleConnectStep("idle");
+        return;
+      }
+      setGoogleAccounts(data.accounts || []);
+      setGoogleConnectStep("pickAccount");
+    } catch {
+      toast.error("Failed to load Google accounts");
+      setGoogleConnectStep("idle");
+    }
   };
 
-  const disconnectPlatform = async (platform: string) => {
-    setPlatformConnections((prev) =>
-      prev.map((p) =>
-        p.platform === platform
-          ? {
-              ...p,
-              connected: false,
-              accountName: undefined,
-              lastSync: undefined,
-            }
-          : p,
-      ),
+  const pickGoogleAccount = async (account: GoogleAccount) => {
+    setSelectedGoogleAccount(account);
+    setGoogleConnectStep("loadingLocations");
+    const accountId = account.name.replace("accounts/", "");
+    try {
+      const res = await fetch(
+        `/api/integrations/google/locations?accountId=${encodeURIComponent(accountId)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to load Google locations");
+        setGoogleConnectStep("pickAccount");
+        return;
+      }
+      setGoogleLocations(data.locations || []);
+      setGoogleConnectStep("pickLocation");
+    } catch {
+      toast.error("Failed to load Google locations");
+      setGoogleConnectStep("pickAccount");
+    }
+  };
+
+  const pickGoogleLocation = async (location: GoogleLocation) => {
+    if (!selectedBusiness || !selectedGoogleAccount) return;
+    const targetLocation = selectedBusiness.locations[0];
+    if (!targetLocation) {
+      toast.error("No location found to link");
+      setGoogleConnectStep("idle");
+      return;
+    }
+
+    setGoogleConnectStep("saving");
+    const accountId = selectedGoogleAccount.name.replace("accounts/", "");
+    const locationId = location.name.replace(
+      `accounts/${accountId}/locations/`,
+      "",
     );
-    toast.success(`Disconnected from ${platform}`);
+
+    const existingAccounts =
+      (targetLocation.platformAccounts as Record<string, any>) || {};
+    const updatedAccounts = {
+      ...existingAccounts,
+      google: {
+        accountId,
+        locationId,
+        accountName: selectedGoogleAccount.accountName,
+        locationName: location.locationName,
+      },
+    };
+
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateLocation",
+          locationId: targetLocation.id,
+          name: targetLocation.name,
+          platformAccounts: updatedAccounts,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to save Google connection");
+      } else {
+        toast.success("Google Business Profile connected");
+        await fetchSettings();
+      }
+    } catch {
+      toast.error("Failed to save Google connection");
+    } finally {
+      setGoogleConnectStep("idle");
+      setGoogleAccounts([]);
+      setGoogleLocations([]);
+      setSelectedGoogleAccount(null);
+    }
+  };
+
+  const cancelGoogleConnect = () => {
+    setGoogleConnectStep("idle");
+    setGoogleAccounts([]);
+    setGoogleLocations([]);
+    setSelectedGoogleAccount(null);
+  };
+
+  const disconnectGoogle = async () => {
+    if (!selectedBusiness) return;
+    const targetLocation = selectedBusiness.locations[0];
+    if (!targetLocation) return;
+
+    const existingAccounts =
+      (targetLocation.platformAccounts as Record<string, any>) || {};
+    const { google: _removed, ...rest } = existingAccounts;
+
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateLocation",
+          locationId: targetLocation.id,
+          name: targetLocation.name,
+          platformAccounts: rest,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to disconnect Google");
+      } else {
+        toast.success("Google Business Profile disconnected");
+        await fetchSettings();
+      }
+    } catch {
+      toast.error("Failed to disconnect Google");
+    }
+  };
+
+  const getGoogleConnectionState = () => {
+    if (!selectedBusiness) return null;
+    const firstLocation = selectedBusiness.locations[0];
+    if (!firstLocation?.platformAccounts) return null;
+    const accounts = firstLocation.platformAccounts as Record<string, any>;
+    return accounts.google || null;
   };
 
   if (loading) {
@@ -236,6 +357,11 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const googleConnection = getGoogleConnectionState();
+  const isGoogleConnected = !!googleConnection;
+  const isGoogleBusy =
+    googleConnectStep !== "idle" && googleConnectStep !== "saving";
 
   return (
     <div className="space-y-6">
@@ -405,68 +531,172 @@ export default function SettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {platformConnections.map((connection) => (
-                <div
-                  key={connection.platform}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {connection.platform.charAt(0)}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{connection.platform}</h4>
-                      {connection.connected ? (
-                        <div className="flex items-center space-x-2">
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                          <span className="text-sm text-green-600">
-                            Connected
-                          </span>
-                          {connection.accountName && (
-                            <span className="text-sm text-gray-600">
-                              • {connection.accountName}
+              {PLATFORM_DEFS.map(({ platform, supported }) => {
+                const isGoogle = platform === "Google";
+                const connected = isGoogle ? isGoogleConnected : false;
+
+                return (
+                  <div
+                    key={platform}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <span className="text-sm font-medium">
+                          {platform.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{platform}</h4>
+                        {connected ? (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-sm text-green-600">
+                              Connected
                             </span>
-                          )}
-                        </div>
+                            {googleConnection?.accountName && isGoogle && (
+                              <span className="text-sm text-gray-600">
+                                • {googleConnection.accountName}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <AlertCircle className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {supported ? "Not connected" : "Coming soon"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {!supported ? (
+                        <Badge variant="secondary">Coming Soon</Badge>
+                      ) : connected ? (
+                        <>
+                          <Badge variant="outline">Active</Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={disconnectGoogle}
+                          >
+                            Disconnect
+                          </Button>
+                        </>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <AlertCircle className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            Not connected
-                          </span>
-                        </div>
+                        <Button
+                          size="sm"
+                          onClick={startGoogleConnect}
+                          disabled={
+                            googleConnectStep !== "idle" &&
+                            googleConnectStep !== "pickAccount" &&
+                            googleConnectStep !== "pickLocation"
+                          }
+                        >
+                          {googleConnectStep === "loadingAccounts" ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : null}
+                          Connect
+                        </Button>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {connection.connected ? (
-                      <>
-                        <Badge variant="outline">Active</Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            disconnectPlatform(connection.platform)
-                          }
-                        >
-                          Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => connectPlatform(connection.platform)}
-                      >
-                        Connect
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
+
+          {googleConnectStep === "pickAccount" && googleAccounts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select a Google Business Account</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {googleAccounts.map((account) => (
+                  <button
+                    key={account.name}
+                    className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => pickGoogleAccount(account)}
+                  >
+                    <p className="font-medium">{account.accountName}</p>
+                    <p className="text-sm text-gray-500">{account.name}</p>
+                  </button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={cancelGoogleConnect}
+                >
+                  Cancel
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {googleConnectStep === "loadingLocations" && (
+            <Card>
+              <CardContent className="flex items-center space-x-2 py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                <span className="text-sm text-gray-600">
+                  Loading locations for{" "}
+                  {selectedGoogleAccount?.accountName}...
+                </span>
+              </CardContent>
+            </Card>
+          )}
+
+          {googleConnectStep === "pickLocation" &&
+            googleLocations.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Select a Location</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {googleLocations.map((loc) => (
+                    <button
+                      key={loc.name}
+                      className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => pickGoogleLocation(loc)}
+                    >
+                      <p className="font-medium">{loc.locationName}</p>
+                      {loc.address && (
+                        <p className="text-sm text-gray-500">
+                          {[
+                            ...(loc.address.addressLines || []),
+                            loc.address.locality,
+                            loc.address.administrativeArea,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={cancelGoogleConnect}
+                  >
+                    Cancel
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+          {googleConnectStep === "saving" && (
+            <Card>
+              <CardContent className="flex items-center space-x-2 py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                <span className="text-sm text-gray-600">
+                  Saving Google connection...
+                </span>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="preferences" className="space-y-6">
