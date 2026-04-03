@@ -216,7 +216,10 @@ export default function SettingsPage() {
   const pickGoogleAccount = async (account: GoogleAccount) => {
     setSelectedGoogleAccount(account);
     setGoogleConnectStep("loadingLocations");
-    const accountId = account.name.replace("accounts/", "");
+    // Use the full resource name as the accountId query param — the backend
+    // will pass it straight through to getGoogleLocations which accepts
+    // either the bare ID or the full path.
+    const accountId = account.name.split("/").pop()!;
     try {
       const res = await fetch(
         `/api/integrations/google/locations?accountId=${encodeURIComponent(accountId)}`,
@@ -245,11 +248,10 @@ export default function SettingsPage() {
     }
 
     setGoogleConnectStep("saving");
-    const accountId = selectedGoogleAccount.name.replace("accounts/", "");
-    const locationId = location.name.replace(
-      `accounts/${accountId}/locations/`,
-      "",
-    );
+    // Extract bare IDs from the resource names regardless of whether the API
+    // returns "accounts/{a}/locations/{id}" or just "locations/{id}".
+    const accountId = selectedGoogleAccount.name.split("/").pop()!;
+    const locationId = location.name.split("/").pop()!;
 
     const existingAccounts =
       (targetLocation.platformAccounts as Record<string, any>) || {};
