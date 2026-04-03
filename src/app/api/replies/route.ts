@@ -83,16 +83,21 @@ async function generateReplyAction(body: any, userId: string) {
     return NextResponse.json({ error: "Review not found" }, { status: 404 });
   }
 
-  // Check if reply already exists
+  // If a DRAFT reply already exists, delete it so we can regenerate.
+  // Block regeneration for SENT or APPROVED replies.
   const existingReply = await prisma.reply.findUnique({
     where: { reviewId: data.reviewId },
   });
 
   if (existingReply) {
-    return NextResponse.json(
-      { error: "Reply already exists" },
-      { status: 409 },
-    );
+    if (existingReply.status === "DRAFT") {
+      await prisma.reply.delete({ where: { id: existingReply.id } });
+    } else {
+      return NextResponse.json(
+        { error: "Reply already sent or approved — cannot regenerate" },
+        { status: 409 },
+      );
+    }
   }
 
   // Generate AI reply
@@ -198,9 +203,15 @@ async function updateReplyAction(body: any, userId: string) {
       // Get platform adapter
       const adapter = getAdapter(reply.review.platform);
 
-      // Get platform configuration
-      const platformConfig =
-        (reply.review.location.platformAccounts as any) || {};
+      // Extract the per-platform config (e.g. platformAccounts["google"])
+      // and attach the Prisma location ID so the adapter can persist refreshed tokens.
+      const platform = reply.review.platform.toLowerCase();
+      const allPlatformAccounts =
+        (reply.review.location.platformAccounts as Record<string, any>) || {};
+      const platformConfig = {
+        ...(allPlatformAccounts[platform] || {}),
+        prismaLocationId: reply.review.location.id,
+      };
 
       // Send reply via platform
       const success = await adapter.postReply(

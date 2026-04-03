@@ -3,6 +3,7 @@ import {
   postGoogleReply,
   refreshGoogleToken,
 } from "@/lib/google-business";
+import { prisma } from "@/lib/prisma";
 
 export interface PlatformAdapter {
   name: string;
@@ -29,7 +30,51 @@ export interface PlatformConfig {
   placeId?: string;
   businessId?: string;
   expiresAt?: number;
+  prismaLocationId?: string; // Prisma Location row ID — used to persist refreshed tokens
   [key: string]: unknown;
+}
+
+/**
+ * Refresh an expired Google token and persist the new token back to the
+ * Location's platformAccounts JSON field in the database.
+ */
+async function refreshAndPersistGoogleToken(
+  config: PlatformConfig,
+): Promise<string> {
+  if (!config.refreshToken) {
+    throw new Error("Access token expired and no refresh token available");
+  }
+
+  const newTokens = await refreshGoogleToken(config.refreshToken);
+  const newAccessToken = newTokens.access_token;
+  const newExpiresAt = Date.now() + newTokens.expires_in * 1000;
+
+  if (config.prismaLocationId) {
+    try {
+      const location = await prisma.location.findUnique({
+        where: { id: config.prismaLocationId },
+        select: { platformAccounts: true },
+      });
+      const accounts = (location?.platformAccounts as Record<string, unknown>) || {};
+      accounts.google = {
+        ...(accounts.google as Record<string, unknown>),
+        accessToken: newAccessToken,
+        expiresAt: newExpiresAt,
+      };
+      await prisma.location.update({
+        where: { id: config.prismaLocationId },
+        data: { platformAccounts: accounts as Record<string, unknown> & object },
+      });
+      console.log(
+        "[GoogleAdapter] Persisted refreshed token for location:",
+        config.prismaLocationId,
+      );
+    } catch (err) {
+      console.error("[GoogleAdapter] Failed to persist refreshed token:", err);
+    }
+  }
+
+  return newAccessToken;
 }
 
 // Google Business Profile Adapter
@@ -47,18 +92,14 @@ export class GoogleAdapter implements PlatformAdapter {
     }
 
     try {
-      // Check if token needs refresh
       let accessToken = config.accessToken;
       if (config.expiresAt && config.expiresAt < Date.now()) {
-        if (!config.refreshToken) {
-          throw new Error("Access token expired and no refresh token available");
-        }
-        const newTokens = await refreshGoogleToken(config.refreshToken);
-        accessToken = newTokens.access_token;
-        // Note: In a real app, you'd update the stored config with new tokens
+        accessToken = await refreshAndPersistGoogleToken({
+          ...config,
+          prismaLocationId: config.prismaLocationId || locationId,
+        });
       }
 
-      // Fetch reviews from Google My Business API
       const reviews = await fetchGoogleReviews(
         accessToken,
         config.accountId,
@@ -84,18 +125,11 @@ export class GoogleAdapter implements PlatformAdapter {
     }
 
     try {
-      // Check if token needs refresh
       let accessToken = config.accessToken;
       if (config.expiresAt && config.expiresAt < Date.now()) {
-        if (!config.refreshToken) {
-          throw new Error("Access token expired and no refresh token available");
-        }
-        const newTokens = await refreshGoogleToken(config.refreshToken);
-        accessToken = newTokens.access_token;
-        // Note: In a real app, you'd update the stored config with new tokens
+        accessToken = await refreshAndPersistGoogleToken(config);
       }
 
-      // Post reply to Google My Business API
       return await postGoogleReply(
         accessToken,
         config.accountId,
@@ -122,7 +156,6 @@ export class YelpAdapter implements PlatformAdapter {
     _locationId: string,
     _config: PlatformConfig,
   ): Promise<ReviewData[]> {
-    // Yelp API can be used to fetch reviews, but replies are not supported
     console.log("Yelp review reading not yet implemented");
     return [];
   }
@@ -132,12 +165,11 @@ export class YelpAdapter implements PlatformAdapter {
     _reply: string,
     _config: PlatformConfig,
   ): Promise<boolean> {
-    // Yelp doesn't allow businesses to reply to reviews via API
     return false;
   }
 
   isConnected(_config: PlatformConfig): boolean {
-    return false; // Yelp integration not active
+    return false;
   }
 }
 
@@ -189,7 +221,7 @@ export class TripAdvisorAdapter implements PlatformAdapter {
   }
 
   isConnected(_config: PlatformConfig): boolean {
-    return false; // TripAdvisor integration not active
+    return false;
   }
 }
 
