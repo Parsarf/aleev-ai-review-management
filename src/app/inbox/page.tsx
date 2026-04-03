@@ -82,10 +82,68 @@ export default function InboxPage() {
   const [replyText, setReplyText] = useState("");
   const [selectedTone, setSelectedTone] = useState("professional");
 
+  // Onboarding state
+  const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [businessName, setBusinessName] = useState("");
+  const [locationName, setLocationName] = useState("");
+
   useEffect(() => {
-    fetchReviews();
+    checkForBusiness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, []);
+
+  useEffect(() => {
+    if (hasBusiness) {
+      fetchReviews();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, hasBusiness]);
+
+  const checkForBusiness = async () => {
+    try {
+      const response = await fetch("/api/settings");
+      const data = await response.json();
+      if (response.ok) {
+        setHasBusiness(data.businesses && data.businesses.length > 0);
+      } else {
+        setHasBusiness(false);
+      }
+    } catch {
+      setHasBusiness(false);
+    }
+  };
+
+  const handleCreateBusiness = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessName.trim()) {
+      toast.error("Please enter a business name");
+      return;
+    }
+    try {
+      setOnboardingLoading(true);
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "createBusiness",
+          name: businessName.trim(),
+          locationName: locationName.trim() || "Main Location",
+        }),
+      });
+      if (response.ok) {
+        toast.success("Business created! Welcome to Aleev.");
+        setHasBusiness(true);
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Failed to create business");
+      }
+    } catch {
+      toast.error("Failed to create business");
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
 
   const fetchReviews = async () => {
     try {
@@ -232,6 +290,67 @@ export default function InboxPage() {
       />
     ));
   };
+
+  // While checking if user has a business
+  if (hasBusiness === null) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Onboarding: no business exists yet
+  if (!hasBusiness) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Welcome to Aleev</CardTitle>
+            <p className="text-sm text-gray-600 mt-1">
+              To get started, tell us about your business. You can update these
+              details later in Settings.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateBusiness} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  Business name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  placeholder="e.g. Bella Vista Restaurant"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">
+                  First location name{" "}
+                  <span className="text-gray-400 font-normal">
+                    (optional, defaults to "Main Location")
+                  </span>
+                </label>
+                <Input
+                  placeholder="e.g. Downtown"
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={onboardingLoading}
+              >
+                {onboardingLoading ? "Creating..." : "Get started"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

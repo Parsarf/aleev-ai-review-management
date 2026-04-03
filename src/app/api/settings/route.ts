@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
       return await updateLocationAction(body, session.user.id);
     } else if (action === "createLocation") {
       return await createLocationAction(body, session.user.id);
+    } else if (action === "createBusiness") {
+      return await createBusinessAction(body, session.user.id);
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
@@ -217,4 +219,45 @@ async function createLocationAction(body: any, userId: string) {
   });
 
   return NextResponse.json(location, { status: 201 });
+}
+
+async function createBusinessAction(body: any, userId: string) {
+  const { name, locationName } = body;
+
+  if (!name) {
+    return NextResponse.json(
+      { error: "Business name required" },
+      { status: 400 },
+    );
+  }
+
+  const business = await prisma.business.create({
+    data: {
+      name,
+      ownerId: userId,
+      locations: {
+        create: {
+          name: locationName || "Main Location",
+          platformAccounts: {},
+        },
+      },
+    },
+    include: { locations: true },
+  });
+
+  // Set user role to OWNER if not already
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: "OWNER" },
+  });
+
+  // Log audit event
+  await logAuditEvent({
+    userId,
+    action: AUDIT_ACTIONS.BUSINESS_CREATED,
+    resource: "BUSINESS",
+    details: { businessId: business.id, name },
+  });
+
+  return NextResponse.json(business, { status: 201 });
 }

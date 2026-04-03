@@ -37,7 +37,6 @@ export const authOptions: NextAuthOptions = {
                   "openid",
                   "email",
                   "profile",
-                  // Add Google Business Profile scopes for review management
                   "https://www.googleapis.com/auth/business.manage",
                 ].join(" "),
               },
@@ -46,6 +45,42 @@ export const authOptions: NextAuthOptions = {
         ]
       : []),
   ],
+  events: {
+    createUser: async ({ user }) => {
+      try {
+        const businessName =
+          user.name || user.email?.split("@")[0] || "My Business";
+
+        await prisma.business.create({
+          data: {
+            name: businessName,
+            ownerId: user.id,
+            locations: {
+              create: {
+                name: "Main Location",
+                platformAccounts: {},
+              },
+            },
+          },
+        });
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { role: "OWNER" },
+        });
+
+        console.log(
+          "[NextAuth] createUser — created default Business + Location for user:",
+          user.id,
+        );
+      } catch (error) {
+        console.error(
+          "[NextAuth] createUser — failed to create Business/Location:",
+          error,
+        );
+      }
+    },
+  },
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user?.id) {
@@ -75,17 +110,12 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     signIn: async ({ user, account }) => {
-      console.log("[NextAuth] signIn callback — provider:", account?.provider, "email:", user.email);
-      if (account?.provider === "google" && user.email) {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email },
-          });
-          console.log("[NextAuth] signIn — user exists in DB:", !!existingUser);
-        } catch (error) {
-          console.error("[NextAuth] signIn — DB error:", error);
-        }
-      }
+      console.log(
+        "[NextAuth] signIn callback — provider:",
+        account?.provider,
+        "email:",
+        user.email,
+      );
       return true;
     },
   },
