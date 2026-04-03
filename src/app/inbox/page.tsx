@@ -67,7 +67,7 @@ interface Filters {
 }
 
 export default function InboxPage() {
-  const { data: _session } = useSession();
+  useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,6 @@ export default function InboxPage() {
 
   useEffect(() => {
     checkForBusiness();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -213,7 +212,7 @@ export default function InboxPage() {
     }
   };
 
-  const sendReply = async (reviewId: string) => {
+  const sendReply = async (_reviewId: string) => {
     if (!replyText.trim()) {
       toast.error("Please enter a reply");
       return;
@@ -329,7 +328,7 @@ export default function InboxPage() {
                 <label className="text-sm font-medium block mb-1">
                   First location name{" "}
                   <span className="text-gray-400 font-normal">
-                    (optional, defaults to "Main Location")
+                    (optional, defaults to &ldquo;Main Location&rdquo;)
                   </span>
                 </label>
                 <Input
