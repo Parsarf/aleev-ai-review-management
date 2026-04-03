@@ -90,14 +90,17 @@ async function generateReplyAction(body: any, userId: string) {
   });
 
   if (existingReply) {
-    if (existingReply.status === "DRAFT") {
-      await prisma.reply.delete({ where: { id: existingReply.id } });
-    } else {
+    if (
+      existingReply.status === "SENT" ||
+      existingReply.status === "APPROVED"
+    ) {
       return NextResponse.json(
         { error: "Reply already sent or approved — cannot regenerate" },
         { status: 409 },
       );
     }
+    // Delete DRAFT or FAILED reply so a fresh one can be generated
+    await prisma.reply.delete({ where: { id: existingReply.id } });
   }
 
   // Generate AI reply
