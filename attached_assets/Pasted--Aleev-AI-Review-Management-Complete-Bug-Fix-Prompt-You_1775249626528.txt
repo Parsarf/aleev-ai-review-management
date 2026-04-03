@@ -1,0 +1,624 @@
+# Aleev AI Review Management — Complete Bug Fix Prompt
+
+You are working on **Aleev**, a Next.js 14 SaaS app for AI-powered review management. The app uses the App Router, Prisma with PostgreSQL, NextAuth (Google OAuth with JWT strategy), OpenAI GPT-4 for reply generation, Stripe for billing, and the Google Business Profile API for review ingestion.
+
+The app is currently broken. A user can sign in successfully with their Google business account, but the entire app shows "no data" — no reviews, no analytics, no settings, nothing. Below are **13 bugs** that must be fixed. They are listed in dependency order: fix them top-to-bottom because later bugs depend on earlier ones being resolved.
+
+---
+
+## BUG 1 — No Business or Location is created for new users (ROOT CAUSE)
+
+### The problem
+
+This is why the app shows no data. When a user signs in with Google OAuth, NextAuth's Prisma adapter creates a `User` row and an `Account` row. But **nothing in the codebase ever creates a `Business` or `Location` for that user.**
+
+Look at the `signIn` callback in `src/lib/auth.ts`:
+
+```ts
+signIn: async ({ user, account }) => {
+  console.log("[NextAuth] signIn callback — provider:", account?.provider, "email:", user.email);
+  if (account?.provider === "google" && user.email) {
+    try {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: user.email },
+      });
+      console.log("[NextAuth] signIn — user exists in DB:", !!existingUser);
+    } catch (error) {
+      console.error("[NextAuth] signIn — DB error:", error);
+    }
+  }
+  return true; // <-- Just returns true. Creates nothing.
+};
+```
+
+It checks if the user exists but never creates a Business. Meanwhile, every single API route in the app fetches data by chaining through the user's businesses and locations:
+
+```ts
+// From GET /api/reviews
+const user = await prisma.user.findUnique({
+  where: { id: userId },
+  include: { businesses: { include: { locations: true } } },
+});
+const locationIds = user.businesses.flatMap(b => b.locations.map(l => l.id));
+// locationIds = [] because user has no businesses → query returns 0 reviews
+```
+
+The same pattern appears in `/api/analytics`, `/api/settings`, `/api/billing`, `/api/tickets` — every data endpoint starts with `user.businesses` which is always an empty array for real users.
+
+The seed file (`prisma/seed.ts`) only creates businesses for hardcoded emails like `owner@aleev.com`. A real Google user like `john@gmail.com` never gets a business.
+
+### What to fix
+
+Modify the `signIn` callback in `src/lib/auth.ts` so that when a Google user signs in for the first time (no existing user in DB), after NextAuth's adapter creates the User row, a default `Business` and a default `Location` are also created for that user. The business should use the user's name or email as the business name (the user can change it later in Settings). The location should be a placeholder like "Main Location". Set the user's role to `OWNER`.
+
+Additionally, you need to handle the timing issue: NextAuth's Prisma adapter creates the User row internally. The `signIn` callback fires before the adapter has finished creating the user in some flows. You may need to use the `events.createUser` hook instead, or check in the `signIn` callback whether the user was just created and handle accordingly. Test both first-time sign-in and returning sign-in to make sure it works for both cases and does not create duplicate businesses on every login.
+
+Also add an "onboarding" check on the frontend: if `GET /api/settings` returns `{ businesses: [] }`, show a simple form asking for business name and first location name, and POST to create them before letting the user proceed to the inbox.
+
+---
+
+## BUG 2 — Settings page "Connect Platform" is a fake simulation, not a real OAuth flow
+
+### The problem
+
+In `src/app/settings/page.tsx`, the `connectPlatform()` function is entirely simulated:
+
+```ts
+const connectPlatform = async (platform: string) => {
+  toast.info(`Connecting to ${platform}...`);
+  // Simulate connection
+  setTimeout(() => {
+    setPlatformConnections(prev =>
+      prev.map(p =>
+        p.platform === platform
+          ? { ...p, connected: true, accountName: "Connected Account", lastSync: new Date().toISOString() }
+          : p
+      )
+    );
+    toast.success(`Connected to ${platform} successfully`);
+  }, 2000);
+};
+```
+
+It flips a local React state variable to "connected" and shows a fake "Connected Account" label. It does not initiate any OAuth flow, does not call any API, and does not persist anything to the database. If the user refreshes the page, the "connected" state disappears.
+
+The backend already supports persisting `platformAccounts` as a JSON field on the `Location` model (see `prisma/schema.prisma`), and the Settings API (`POST /api/settings` with `action: "updateLocation"`) can save `platformAccounts`. But the frontend connect button is not wired to any of this.
+
+### What to fix
+
+For the Google integration specifically:
+
+1. The "Connect" button for Google should initiate an OAuth flow that requests the `https://www.googleapis.com/auth/business.manage` scope. The user's initial Google sign-in already requests this scope (see the `authorization.params.scope` in `auth.ts`), so the `access_token` and `refresh_token` from the user's Account row in the database may already have the right permissions. Check whether the stored tokens from the initial sign-in have the business.manage scope. If they do, you can skip a second OAuth flow and go straight to account discovery (Bug 3). If they don't, you need a separate OAuth consent flow for the business scope.
+
+2. After obtaining valid tokens, call the Google Business Profile API to discover the user's accounts and locations (see Bug 3 below).
+
+3. Once the user selects a Google Business account and location, persist the connection details (`accessToken`, `refreshToken`, `accountId`, `locationId`, `placeId`, `expiresAt`) into the `platformAccounts` JSON field on the corresponding Location row, using the existing `POST /api/settings` with `action: "updateLocation"`.
+
+4. The `platformConnections` state on the Settings page should be initialized from the actual `platformAccounts` data fetched from the API (which comes from the database), not from hardcoded `{ connected: false }` defaults.
+
+5. `disconnectPlatform()` should also call the API to clear the `platformAccounts` field for that platform, not just flip local state.
+
+---
+
+## BUG 3 — Google Business account discovery is missing
+
+### The problem
+
+The file `src/lib/google-business.ts` has a function `getGoogleLocations(accessToken, accountId)` that can list locations for a *known* account. But there is no function that lists the user's Google Business **accounts** in the first place. The Google adapter in `src/lib/platforms/index.ts` also assumes `config.accountId` and `config.locationId` are already known:
+
+```ts
+if (!config.accessToken || !config.accountId || !config.locationId) {
+  throw new Error("Google Business Profile not properly configured. Missing accessToken, accountId, or locationId.");
+}
+```
+
+So the full flow of "user clicks Connect → app discovers which Google Business accounts the user has → user picks one → app discovers locations under that account → user picks a location → app saves the config" does not exist anywhere.
+
+### What to fix
+
+1. Create a new API route (e.g., `GET /api/integrations/google/accounts`) that uses the user's stored Google OAuth tokens (from the `Account` table via NextAuth) to call the Google Business Profile API's account listing endpoint. Return the list of accounts (account ID, account name) to the frontend.
+
+2. Create another route or extend the same one (e.g., `GET /api/integrations/google/locations?accountId=xxx`) that takes an account ID and returns the locations under that account using the existing `getGoogleLocations()` function.
+
+3. In the Settings page, after the user clicks "Connect Google," show a dropdown or selector with the discovered accounts. After the user picks an account, show a second selector with the locations. After the user picks a location, save the full config (accessToken, refreshToken, accountId, locationId, placeId, expiresAt) to the Location's `platformAccounts` field via `POST /api/settings`.
+
+4. The Google My Business API for listing accounts uses:
+   ```
+   GET https://mybusinessaccountmanagement.googleapis.com/v1/accounts
+   ```
+   with the user's OAuth bearer token. Add this function to `src/lib/google-business.ts`.
+
+---
+
+## BUG 4 — Google review fetching is stubbed out and always returns an empty array
+
+### The problem
+
+In `src/lib/google-business.ts`, the `fetchGoogleReviews()` function has the actual API call commented out and returns an empty array:
+
+```ts
+export async function fetchGoogleReviews(accessToken, accountId, locationId) {
+  // ...setup...
+
+  // For demonstration, here's the structure:
+  const reviews: GoogleBusinessReview[] = []; // <-- ALWAYS EMPTY
+
+  // Note: The actual API call would be:
+  // const response = await mybusiness.accounts.locations.reviews.list({
+  //   parent: parent,
+  // });
+  // reviews = response.data.reviews || [];
+
+  return reviews.map(review => ({ /* transform */ }));
+}
+```
+
+This means even with a valid token, account ID, and location ID, the ingestion job (`POST /api/jobs/ingest`) will import zero reviews from Google.
+
+### What to fix
+
+Uncomment and implement the actual Google My Business API call to fetch reviews. The correct API endpoint for the current Google Business Profile API is:
+
+```
+GET https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/reviews
+```
+
+Or using the `googleapis` npm package that is already installed:
+
+```ts
+const mybusiness = google.mybusinessaccountmanagement({ version: 'v1', auth: oauth2Client });
+```
+
+Note: Google has been migrating from the My Business API v4 to newer APIs. You need to check which API version is currently available and use the correct one. The `googleapis` package may need `google.mybusiness({ version: 'v4' })` or a direct HTTP call. The key is to actually make the call and return real review data instead of an empty array.
+
+Also make sure the review data is correctly mapped to the `ReviewData` interface with `platformId`, `stars`, `text`, `authorName`, `authorAvatar`, `url`, and `createdAt`.
+
+---
+
+## BUG 5 — Google reply posting is also stubbed out
+
+### The problem
+
+In `src/lib/google-business.ts`, `postGoogleReply()` does not actually post anything:
+
+```ts
+export async function postGoogleReply(accessToken, accountId, locationId, reviewName, replyText) {
+  // ...setup...
+
+  // In the real implementation, you would call the reply endpoint
+  // const response = await mybusiness.accounts.locations.reviews.updateReply({...});
+
+  console.log(`Would post reply to review ${reviewName}: ${replyText.substring(0, 50)}...`);
+  return true; // <-- Pretends it worked
+}
+```
+
+This means when a user clicks "Send Reply" in the inbox, the reply is marked as "SENT" in the database and the review status changes to "AUTO_SENT," but the reply is never actually posted to Google. The user thinks the reply was sent but it wasn't.
+
+### What to fix
+
+Implement the actual API call to post a reply. The Google Business Profile API endpoint for replying to a review is:
+
+```
+PUT https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/reviews/{reviewId}/reply
+```
+
+With the request body:
+```json
+{ "comment": "Your reply text here" }
+```
+
+Make this call using the user's stored OAuth tokens. If the call fails, return `false` so the reply status is correctly set to `FAILED` in the database (this error handling already exists in `src/app/api/replies/route.ts`).
+
+---
+
+## BUG 6 — The send-reply path passes the wrong config shape to the platform adapter
+
+### The problem
+
+In `src/app/api/replies/route.ts`, the `updateReplyAction` function (the "send" action) passes the entire `platformAccounts` object to the adapter:
+
+```ts
+const platformConfig = (reply.review.location.platformAccounts as any) || {};
+```
+
+But `platformAccounts` on a Location looks like this (see seed data):
+```json
+{
+  "google": {
+    "placeId": "ChIJ...",
+    "accessToken": "mock-google-token",
+    "connected": true
+  },
+  "yelp": {
+    "businessId": "bella-vista-restaurant-downtown",
+    "connected": false
+  }
+}
+```
+
+The Google adapter expects `config.accessToken`, `config.accountId`, `config.locationId` at the **top level**. But it receives an object where those fields are nested under `config.google.accessToken`, etc. So the adapter's `isConnected()` check fails:
+
+```ts
+isConnected(config: PlatformConfig): boolean {
+  return !!(config.accessToken && config.accountId && config.locationId);
+  // config.accessToken is undefined because it's actually at config.google.accessToken
+}
+```
+
+This means every reply send attempt will fail silently because the adapter thinks the platform is not connected.
+
+### What to fix
+
+In the send action in `src/app/api/replies/route.ts`, extract the platform-specific config before passing it to the adapter:
+
+```ts
+const platform = reply.review.platform.toLowerCase(); // "google", "yelp", etc.
+const allPlatformAccounts = (reply.review.location.platformAccounts as Record<string, any>) || {};
+const platformConfig = allPlatformAccounts[platform] || {};
+```
+
+Then pass `platformConfig` (not the entire `allPlatformAccounts`) to `adapter.postReply()`.
+
+Do the same in the ingestion job `src/app/api/jobs/ingest/route.ts` — verify that when it iterates `Object.entries(platformAccounts)`, the `config` variable it passes to `adapter.readReviews()` is the per-platform config object, not the outer wrapper. (This one actually already looks correct in the ingest job since it does `for (const [platform, config] of Object.entries(platformAccounts))`, but double-check.)
+
+---
+
+## BUG 7 — Refreshed Google tokens are not persisted back to the database
+
+### The problem
+
+In `src/lib/platforms/index.ts`, the `GoogleAdapter.readReviews()` method refreshes expired tokens but does not save them:
+
+```ts
+if (config.expiresAt && config.expiresAt < Date.now()) {
+  if (!config.refreshToken) {
+    throw new Error("Access token expired and no refresh token available");
+  }
+  const newTokens = await refreshGoogleToken(config.refreshToken);
+  accessToken = newTokens.access_token;
+  // Note: In a real app, you'd update the stored config with new tokens
+}
+```
+
+The refreshed access token is used for the current request only. On the next request, the stale expired token is read from the database again, and another refresh call happens. This wastes API quota and introduces unnecessary latency. Worse, if Google rate-limits the refresh calls, subsequent requests will fail.
+
+### What to fix
+
+After refreshing the token, update the `platformAccounts` JSON field on the Location row in the database with the new `accessToken` and `expiresAt`. You'll need to pass the `locationId` (the Prisma Location ID, not the Google location ID) into the adapter, or pass a callback/update function. One approach:
+
+1. In the adapter's `readReviews` and `postReply` methods, accept an optional `onTokenRefresh` callback.
+2. In the API routes that call the adapter, provide a callback that updates the Location's `platformAccounts` in the database.
+3. After calling `refreshGoogleToken()`, invoke the callback with the new token data.
+
+Alternatively, handle token refresh at the API route level before calling the adapter, so the adapter always receives a valid token.
+
+---
+
+## BUG 8 — JWT type declaration does not match what the auth code actually stores
+
+### The problem
+
+In `src/types/next-auth.d.ts`:
+
+```ts
+declare module "next-auth/jwt" {
+  interface JWT {
+    uid: string; // <-- declares "uid"
+  }
+}
+```
+
+But in `src/lib/auth.ts`, the JWT callback writes to `token.id`:
+
+```ts
+jwt: async ({ token, user }) => {
+  if (user?.id) {
+    token.id = user.id; // <-- writes "id", not "uid"
+  }
+  return token;
+},
+```
+
+And the session callback reads from `token.id`:
+
+```ts
+session: async ({ session, token }) => {
+  if (session?.user && token?.id) {
+    (session.user as ExtendedUser).id = token.id as string;
+    // ...
+  }
+}
+```
+
+The runtime works because JavaScript doesn't enforce TypeScript interfaces, but the type declaration is wrong. Any code that trusts the TypeScript type and reads `token.uid` will get `undefined` at runtime. This is a correctness issue that will bite anyone maintaining the code.
+
+### What to fix
+
+Change the type declaration in `src/types/next-auth.d.ts` to match what the code actually does:
+
+```ts
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string; // matches token.id in auth.ts
+  }
+}
+```
+
+---
+
+## BUG 9 — NEXTAUTH_URL is mutated globally on every request, causing race conditions
+
+### The problem
+
+In `src/app/api/auth/[...nextauth]/route.ts`:
+
+```ts
+async function authHandler(req: NextRequest, context: any) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+
+  if (host) {
+    process.env.NEXTAUTH_URL = `${proto}://${host}`; // <-- mutates global env
+  }
+
+  return handler(req, context);
+}
+```
+
+`process.env` is a global singleton shared across all requests in the same Node.js process. In serverless environments like Vercel, a single Lambda instance can handle multiple concurrent requests. If two requests arrive simultaneously with different `Host` headers (e.g., during a deployment with preview URLs), one request's `NEXTAUTH_URL` can overwrite the other's mid-flight. This causes intermittent failures in token verification, callback URL matching, and CSRF checks.
+
+### What to fix
+
+Do not mutate `process.env.NEXTAUTH_URL`. Instead, set `NEXTAUTH_URL` correctly in the environment variables of your deployment platform (Vercel, Railway, etc.) and remove this dynamic override entirely.
+
+If you genuinely need to support multiple hostnames (e.g., custom domains), use NextAuth's `NEXTAUTH_URL_INTERNAL` environment variable for server-side calls, and configure the `trustHost: true` option in your NextAuth config (available in NextAuth v4.21+), which tells NextAuth to trust the `Host` header from the incoming request without needing to set `NEXTAUTH_URL` dynamically.
+
+Replace the entire `authHandler` wrapper with a simple:
+
+```ts
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
+```
+
+And add `trustHost: true` to `authOptions` if dynamic host support is needed.
+
+---
+
+## BUG 10 — PII regex patterns use the global `/g` flag, causing stateful `.test()` behavior
+
+### The problem
+
+In `src/lib/ai.ts`:
+
+```ts
+const PII_PATTERNS = [
+  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, // Email
+  /\b\d{3}-\d{2}-\d{4}\b/g, // SSN
+  /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, // Credit card
+  /\b\d{3}-\d{3}-\d{4}\b/g, // Phone
+];
+```
+
+These are module-level constants with the `/g` (global) flag. In JavaScript, a global regex is stateful — calling `.test()` on it advances its internal `.lastIndex` property. The next call to `.test()` on the same regex starts matching from `lastIndex`, not from position 0. Since these regex objects are reused across multiple calls to `filterPolicy()`, PII detection will intermittently miss matches.
+
+Example of the failure:
+
+```js
+const regex = /foo/g;
+regex.test("foo"); // true, lastIndex is now 3
+regex.test("foo"); // false (!), lastIndex resets to 0
+regex.test("foo"); // true again
+```
+
+So every other call to `filterPolicy()` will silently skip PII detection for some patterns.
+
+### What to fix
+
+Remove the `/g` flag from all PII_PATTERNS entries. The `filterPolicy` function only needs to know whether a match exists (`.test()` returns boolean), not find all matches:
+
+```ts
+const PII_PATTERNS = [
+  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
+  /\b\d{3}-\d{2}-\d{4}\b/,
+  /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/,
+  /\b\d{3}-\d{3}-\d{4}\b/,
+];
+```
+
+---
+
+## BUG 11 — Reply generation blocks regeneration if a reply already exists
+
+### The problem
+
+In `src/app/api/replies/route.ts`, the `generateReplyAction` function:
+
+```ts
+const existingReply = await prisma.reply.findUnique({
+  where: { reviewId: data.reviewId },
+});
+
+if (existingReply) {
+  return NextResponse.json(
+    { error: "Reply already exists" },
+    { status: 409 },
+  );
+}
+```
+
+This means once a draft reply is generated for a review, the user can never regenerate it. If the AI-generated reply is bad and the user wants to try again with a different tone, they get a 409 error. The inbox UI has no handling for this — the "Generate AI Reply" button just shows a generic error toast.
+
+### What to fix
+
+There are two options:
+
+**Option A (recommended):** If a reply already exists in `DRAFT` status, delete the old one and generate a new one. If the reply is in `SENT` or `APPROVED` status, block regeneration (you don't want to overwrite a reply that was already sent).
+
+```ts
+if (existingReply) {
+  if (existingReply.status === 'DRAFT') {
+    await prisma.reply.delete({ where: { id: existingReply.id } });
+    // Continue to generate a new one
+  } else {
+    return NextResponse.json(
+      { error: "Reply already sent or approved, cannot regenerate" },
+      { status: 409 }
+    );
+  }
+}
+```
+
+**Option B:** Update the existing reply's `draftText` instead of creating a new row:
+
+```ts
+if (existingReply) {
+  if (existingReply.status === 'DRAFT') {
+    const updatedReply = await prisma.reply.update({
+      where: { id: existingReply.id },
+      data: { draftText: aiResponse.reply, tone: data.tone },
+    });
+    return NextResponse.json({ reply: updatedReply, isCrisis: aiResponse.isCrisis, flagged: aiResponse.flagged, reason: aiResponse.reason });
+  } else {
+    return NextResponse.json({ error: "Reply already sent" }, { status: 409 });
+  }
+}
+```
+
+Also update the inbox page (`src/app/inbox/page.tsx`) to handle the 409 case more gracefully — if the reply already exists, show a message like "A reply already exists for this review" instead of a generic error.
+
+---
+
+## BUG 12 — Settings page platform connection UI state is not loaded from the database
+
+### The problem
+
+The settings page initializes platform connections from hardcoded defaults:
+
+```ts
+const [platformConnections, setPlatformConnections] = useState<PlatformConnection[]>([
+  { platform: "Google", connected: false },
+  { platform: "Yelp", connected: false },
+  { platform: "Facebook", connected: false },
+  { platform: "TripAdvisor", connected: false },
+]);
+```
+
+Even though the `GET /api/settings` response includes `locations` with their `platformAccounts` data, the settings page never reads that data to determine which platforms are actually connected. So even if a location has a valid Google configuration saved in `platformAccounts`, the UI will still show "Not connected."
+
+### What to fix
+
+In the `fetchSettings` function, after receiving the business data, iterate through the selected business's locations and their `platformAccounts` to determine the real connection state:
+
+```ts
+const fetchSettings = async () => {
+  const response = await fetch("/api/settings");
+  const data = await response.json();
+
+  if (response.ok && data.businesses.length > 0) {
+    setBusinesses(data.businesses);
+    setSelectedBusiness(data.businesses[0]);
+
+    // Derive platform connection state from actual data
+    const business = data.businesses[0];
+    const allPlatformAccounts = business.locations.reduce((acc, loc) => {
+      if (loc.platformAccounts) {
+        Object.entries(loc.platformAccounts).forEach(([platform, config]) => {
+          if (config && typeof config === 'object' && config.accessToken) {
+            acc[platform.toLowerCase()] = { connected: true, accountName: config.accountId || "Connected", lastSync: loc.updatedAt };
+          }
+        });
+      }
+      return acc;
+    }, {});
+
+    setPlatformConnections(prev =>
+      prev.map(p => ({
+        ...p,
+        connected: !!allPlatformAccounts[p.platform.toLowerCase()],
+        accountName: allPlatformAccounts[p.platform.toLowerCase()]?.accountName,
+        lastSync: allPlatformAccounts[p.platform.toLowerCase()]?.lastSync,
+      }))
+    );
+  }
+};
+```
+
+---
+
+## BUG 13 — Non-Google platform adapters are explicitly unimplemented
+
+### The problem
+
+In `src/lib/platforms/index.ts`, the Yelp, Facebook, and TripAdvisor adapters are stubs:
+
+```ts
+// YelpAdapter
+isConnected(_config: PlatformConfig): boolean {
+  return false; // Yelp integration not active
+}
+
+// FacebookAdapter
+async readReviews() {
+  console.log("Facebook review reading not yet implemented");
+  return [];
+}
+
+// TripAdvisorAdapter
+isConnected(_config: PlatformConfig): boolean {
+  return false; // TripAdvisor integration not active
+}
+```
+
+While this is less urgent than the Google issues, these stubs create a misleading UX. The Settings page shows Yelp, Facebook, and TripAdvisor as available integrations with "Connect" buttons, but connecting them does nothing.
+
+### What to fix
+
+For now, the honest fix is to clearly indicate in the UI that Yelp, Facebook, and TripAdvisor are "Coming Soon" rather than showing functional-looking Connect buttons. Either:
+
+1. Add a `supported: boolean` flag to each platform connection and disable the Connect button for unsupported platforms, showing a "Coming Soon" badge instead.
+2. Or remove Yelp/Facebook/TripAdvisor from the integrations tab entirely until they are implemented.
+
+Do NOT remove the adapter scaffolding in `src/lib/platforms/index.ts` — that code structure is fine for future implementation. Just fix the UI so users aren't misled.
+
+---
+
+## Summary of files to modify
+
+Here is every file that needs changes, mapped to which bugs affect it:
+
+| File | Bugs |
+|------|------|
+| `src/lib/auth.ts` | #1 (create Business+Location on first sign-in) |
+| `src/types/next-auth.d.ts` | #8 (change `uid` to `id`) |
+| `src/app/api/auth/[...nextauth]/route.ts` | #9 (remove NEXTAUTH_URL mutation) |
+| `src/app/settings/page.tsx` | #2, #3, #12, #13 (real OAuth flow, account discovery UI, load state from DB, Coming Soon badges) |
+| `src/lib/google-business.ts` | #3, #4, #5 (add account listing, implement fetchGoogleReviews, implement postGoogleReply) |
+| `src/lib/platforms/index.ts` | #7 (persist refreshed tokens) |
+| `src/app/api/replies/route.ts` | #6, #11 (fix platformConfig shape, allow draft regeneration) |
+| `src/lib/ai.ts` | #10 (remove `/g` flag from PII regexes) |
+| `src/app/inbox/page.tsx` | #1 (onboarding check), #11 (handle 409 gracefully) |
+
+New files to create:
+
+| File | Purpose |
+|------|---------|
+| `src/app/api/integrations/google/accounts/route.ts` | Bug #3 — endpoint to list user's Google Business accounts |
+| `src/app/api/integrations/google/locations/route.ts` | Bug #3 — endpoint to list locations under an account |
+
+---
+
+## Testing checklist
+
+After implementing all fixes, verify:
+
+1. **New user sign-in**: Sign in with a Google account that has never used the app. Confirm a Business and Location are created. Confirm the inbox loads (may be empty of reviews, but should not show errors).
+2. **Returning user sign-in**: Sign in again with the same account. Confirm no duplicate businesses are created.
+3. **Settings page**: Confirm the Integrations tab shows the real connection state from the database, not hardcoded "Not connected."
+4. **Google Connect flow**: Click Connect for Google, verify it discovers accounts and locations, verify the selection is persisted to the database, verify the Settings page shows "Connected" after refresh.
+5. **Review ingestion**: After connecting Google, trigger the ingest job (`POST /api/jobs/ingest` with the CRON_SECRET). Verify real reviews are pulled from Google and stored in the database. Verify they appear in the inbox.
+6. **Reply generation**: Select a review, click "Generate AI Reply." Verify a draft is created. Click "Generate AI Reply" again — verify the draft is regenerated (not a 409 error).
+7. **Reply sending**: Edit a draft and click "Send Reply." Verify the reply is actually posted to Google (check the Google Business Profile dashboard). Verify the review status changes to AUTO_SENT.
+8. **PII filtering**: Generate a reply that contains an email address. Verify it is flagged. Generate another reply — verify the filter still catches PII (no false negatives from the regex bug).
+9. **Analytics**: Navigate to the Analytics page. Verify KPIs, charts, and distributions load with real data.
+10. **Token refresh**: Wait for the Google access token to expire (or manually set `expiresAt` to a past timestamp in the database). Trigger the ingest job. Verify the token is refreshed and the new token is saved to the database.
