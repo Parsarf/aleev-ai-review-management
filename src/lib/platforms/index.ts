@@ -70,7 +70,15 @@ async function refreshAndPersistGoogleToken(
         config.prismaLocationId,
       );
     } catch (err) {
-      console.error("[GoogleAdapter] Failed to persist refreshed token:", err);
+      // Log prominently — the current request will still succeed with the
+      // in-memory token, but the next request will re-trigger a refresh.
+      // Investigate DB connectivity if this fires repeatedly.
+      console.error(
+        "[GoogleAdapter] WARN: Token refreshed but DB persistence failed for location",
+        config.prismaLocationId,
+        "— next request will need to refresh again:",
+        err,
+      );
     }
   }
 

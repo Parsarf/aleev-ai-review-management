@@ -83,8 +83,7 @@ async function generateReplyAction(body: any, userId: string) {
     return NextResponse.json({ error: "Review not found" }, { status: 404 });
   }
 
-  // If a DRAFT reply already exists, delete it so we can regenerate.
-  // Block regeneration for SENT or APPROVED replies.
+  // Block regeneration for already-sent or approved replies.
   const existingReply = await prisma.reply.findUnique({
     where: { reviewId: data.reviewId },
   });
@@ -99,11 +98,10 @@ async function generateReplyAction(body: any, userId: string) {
         { status: 409 },
       );
     }
-    // Delete DRAFT or FAILED reply so a fresh one can be generated
-    await prisma.reply.delete({ where: { id: existingReply.id } });
   }
 
-  // Generate AI reply
+  // Generate AI reply BEFORE touching the DB — if generation fails the old
+  // draft is still intact.
   const aiResponse = await generateReply({
     businessName: review.location.business.name,
     brandRules: review.location.business.brandRules || "",
@@ -112,14 +110,19 @@ async function generateReplyAction(body: any, userId: string) {
     reviewText: review.text,
   });
 
-  // Create reply record
-  const reply = await prisma.reply.create({
-    data: {
-      reviewId: data.reviewId,
-      draftText: aiResponse.reply,
-      tone: data.tone,
-      status: aiResponse.flagged ? "DRAFT" : "DRAFT",
-    },
+  // Atomically replace the old DRAFT/FAILED reply (if any) and create the new one.
+  const reply = await prisma.$transaction(async (tx) => {
+    if (existingReply) {
+      await tx.reply.delete({ where: { id: existingReply.id } });
+    }
+    return tx.reply.create({
+      data: {
+        reviewId: data.reviewId,
+        draftText: aiResponse.reply,
+        tone: data.tone,
+        status: "DRAFT",
+      },
+    });
   });
 
   // Log audit event
