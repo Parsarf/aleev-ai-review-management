@@ -73,20 +73,16 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    signIn: async ({ user, account, profile }) => {
-      // PrismaAdapter should handle user creation automatically,
-      // but we can add logging here to debug
+    signIn: async ({ user, account }) => {
+      console.log("[NextAuth] signIn callback — provider:", account?.provider, "email:", user.email);
       if (account?.provider === "google" && user.email) {
         try {
-          // Check if user exists (adapter should create it, but verify)
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email },
           });
-          if (!existingUser) {
-            console.log("User will be created by PrismaAdapter:", user.email);
-          }
+          console.log("[NextAuth] signIn — user exists in DB:", !!existingUser);
         } catch (error) {
-          console.error("Error checking user during sign in:", error);
+          console.error("[NextAuth] signIn — DB error:", error);
         }
       }
       return true;

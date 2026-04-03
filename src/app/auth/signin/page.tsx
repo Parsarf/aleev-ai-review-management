@@ -9,13 +9,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  Callback: "Sign-in failed. Please try again.",
+  Callback: "Sign-in failed — the server encountered an error processing your login.",
   OAuthSignin: "Could not start Google sign-in. Please try again.",
   OAuthCallback: "Error during Google sign-in callback. Please try again.",
   OAuthCreateAccount: "Could not create your account. Please try again.",
   EmailCreateAccount: "Could not create your account. Please try again.",
   SessionRequired: "Please sign in to access this page.",
-  Default: "An error occurred during sign-in. Please try again.",
+  AccessDenied: "Access was denied. Make sure you approve all permissions on the Google consent screen.",
+  OAuthAccountNotLinked: "This Google account is already linked to a different sign-in method.",
+  Configuration: "Server configuration error. Please contact support.",
+  Default: "An error occurred during sign-in.",
 };
 
 function SignInForm() {
@@ -30,7 +33,7 @@ function SignInForm() {
 
   const urlError = searchParams.get("error");
   const displayError = error ||
-    (urlError ? (ERROR_MESSAGES[urlError] ?? ERROR_MESSAGES.Default) : "");
+    (urlError ? `${ERROR_MESSAGES[urlError] ?? ERROR_MESSAGES.Default} (code: ${urlError})` : "");
 
   const handleGoogleSignIn = async () => {
     try {
