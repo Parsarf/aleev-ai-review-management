@@ -259,32 +259,22 @@ export default function SettingsPage() {
     }
 
     setGoogleConnectStep("saving");
-    // Extract bare IDs from the resource names regardless of whether the API
-    // returns "accounts/{a}/locations/{id}" or just "locations/{id}".
-    const accountId = selectedGoogleAccount.name.split("/").pop()!;
-    const locationId = location.name.split("/").pop()!;
-
-    const existingAccounts =
-      (targetLocation.platformAccounts as Record<string, any>) || {};
-    const updatedAccounts = {
-      ...existingAccounts,
-      google: {
-        accountId,
-        locationId,
-        accountName: selectedGoogleAccount.accountName,
-        locationName: location.locationName,
-      },
-    };
+    // Extract bare IDs from resource names regardless of API-returned format
+    const googleAccountId = selectedGoogleAccount.name.split("/").pop()!;
+    const googleLocationId = location.name.split("/").pop()!;
 
     try {
-      const res = await fetch("/api/settings", {
+      // POST to the server-side connect endpoint so OAuth tokens are fetched
+      // and saved server-side — tokens never pass through the browser.
+      const res = await fetch("/api/integrations/google/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "updateLocation",
           locationId: targetLocation.id,
-          name: targetLocation.name,
-          platformAccounts: updatedAccounts,
+          googleAccountId,
+          googleLocationId,
+          accountName: selectedGoogleAccount.accountName,
+          locationName: location.locationName,
         }),
       });
       if (!res.ok) {
@@ -292,6 +282,12 @@ export default function SettingsPage() {
         toast.error(err.error || "Failed to save Google connection");
       } else {
         toast.success("Google Business Profile connected");
+        // Auto-trigger a sync so reviews appear immediately
+        try {
+          await fetch("/api/reviews/sync", { method: "POST" });
+        } catch {
+          // Non-critical — user can sync manually from the inbox
+        }
         await fetchSettings();
       }
     } catch {
@@ -314,7 +310,10 @@ export default function SettingsPage() {
 
   const disconnectGoogle = async () => {
     if (!selectedBusiness) return;
-    const targetLocation = selectedBusiness.locations[0];
+    const targetLocation =
+      selectedBusiness.locations.find(
+        (l) => l.id === selectedConnectLocationId,
+      ) || selectedBusiness.locations[0];
     if (!targetLocation) return;
 
     const existingAccounts =
@@ -346,9 +345,12 @@ export default function SettingsPage() {
 
   const getGoogleConnectionState = () => {
     if (!selectedBusiness) return null;
-    const firstLocation = selectedBusiness.locations[0];
-    if (!firstLocation?.platformAccounts) return null;
-    const accounts = firstLocation.platformAccounts as Record<string, any>;
+    const loc =
+      selectedBusiness.locations.find(
+        (l) => l.id === selectedConnectLocationId,
+      ) || selectedBusiness.locations[0];
+    if (!loc?.platformAccounts) return null;
+    const accounts = loc.platformAccounts as Record<string, any>;
     return accounts.google || null;
   };
 

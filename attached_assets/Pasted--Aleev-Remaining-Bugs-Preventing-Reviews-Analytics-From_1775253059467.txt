@@ -1,0 +1,476 @@
+# Aleev — Remaining Bugs Preventing Reviews & Analytics From Loading
+
+## Context for the developer
+
+Several bugs from the original list have been fixed correctly. The NEXTAUTH_URL mutation, JWT type mismatch, PII regex `/g` flags, reply regeneration, reply config shape, token refresh persistence, and auto-creation of a Business on first sign-in are all working. The new Google integration API routes and Settings page connect flow were also added.
+
+**However, reviews and analytics still do not load.** The user can sign in, they see the onboarding prompt, their Business + Location get created, but the inbox shows zero reviews and analytics shows "No Data Available." There are 5 remaining problems that form a dependency chain. All 5 must be fixed for the app to work end-to-end.
+
+---
+
+## PROBLEM 1 — The Settings page saves the Google connection WITHOUT the OAuth tokens
+
+This is the primary reason reviews cannot be fetched. It is a critical bug.
+
+### Where it is
+
+`src/app/settings/page.tsx`, inside the `pickGoogleLocation()` function, around line 250.
+
+### What it does wrong
+
+When the user goes through the "Connect Google" flow (picks an account, picks a location), the code saves this object to `platformAccounts.google` on the Location row:
+
+```ts
+const updatedAccounts = {
+  ...existingAccounts,
+  google: {
+    accountId,
+    locationId,
+    accountName: selectedGoogleAccount.accountName,
+    locationName: location.locationName,
+  },
+};
+```
+
+This object contains `accountId` and `locationId` but does **NOT** contain `accessToken`, `refreshToken`, or `expiresAt`.
+
+### Why this breaks everything
+
+The Google adapter in `src/lib/platforms/index.ts` checks `isConnected()` like this:
+
+```ts
+isConnected(config: PlatformConfig): boolean {
+  return !!(config.accessToken && config.accountId && config.locationId);
+}
+```
+
+Since `accessToken` is missing from the saved config, `isConnected()` returns `false`. This means:
+
+1. The ingest job (`POST /api/jobs/ingest`) skips this location because it's "not connected"
+2. The reply-send path cannot post replies because the adapter has no token
+3. `fetchGoogleReviews()` in `src/lib/google-business.ts` cannot make API calls without a token
+
+### How to fix it
+
+The OAuth tokens for the user's Google account are stored in the `Account` table by NextAuth (the `access_token`, `refresh_token`, and `expires_at` columns). The `pickGoogleLocation()` function needs to include these tokens in the saved `platformAccounts.google` object.
+
+**Option A (recommended): Create a new backend endpoint that returns the tokens and saves the connection in one step.** This is better because it keeps tokens server-side — they never travel to the browser.
+
+Create a new API route, for example `POST /api/integrations/google/connect`, that accepts `{ locationId, googleAccountId, googleLocationId, accountName, locationName }` in the body. Inside this route:
+
+1. Look up the user's Google OAuth tokens from the `Account` table:
+   ```ts
+   const account = await prisma.account.findFirst({
+     where: { userId: session.user.id, provider: "google" },
+     select: { access_token: true, refresh_token: true, expires_at: true },
+   });
+   ```
+2. If the token is expired, refresh it using `refreshGoogleToken()` and update the Account row.
+3. Build the full `platformAccounts.google` object with ALL required fields:
+   ```ts
+   const googleConfig = {
+     accessToken: account.access_token,
+     refreshToken: account.refresh_token,
+     expiresAt: account.expires_at ? account.expires_at * 1000 : null, // convert from Unix seconds to ms
+     accountId: body.googleAccountId,
+     locationId: body.googleLocationId,
+     accountName: body.accountName,
+     locationName: body.locationName,
+   };
+   ```
+4. Read the existing `platformAccounts` from the Location row, merge in `google: googleConfig`, and save it back:
+   ```ts
+   const location = await prisma.location.findUnique({
+     where: { id: body.locationId },
+     select: { platformAccounts: true },
+   });
+   const existing = (location?.platformAccounts as Record<string, unknown>) || {};
+   await prisma.location.update({
+     where: { id: body.locationId },
+     data: {
+       platformAccounts: { ...existing, google: googleConfig },
+     },
+   });
+   ```
+5. Return success.
+
+Then update `pickGoogleLocation()` in the Settings page to call this new endpoint instead of directly calling `POST /api/settings` with `action: "updateLocation"`. The frontend no longer needs to know about tokens at all.
+
+**Option B (simpler but less secure): Have the existing accounts/locations endpoints return the tokens.** Modify `GET /api/integrations/google/accounts` to include the `accessToken`, `refreshToken`, and `expiresAt` in its response. Then in `pickGoogleLocation()`, include those values when building `updatedAccounts.google`. This is simpler but sends tokens to the browser unnecessarily.
+
+**Whichever option you choose, the saved `platformAccounts.google` object MUST contain these fields:**
+```json
+{
+  "accessToken": "ya29.a0AfH...",
+  "refreshToken": "1//0eXyz...",
+  "expiresAt": 1719500000000,
+  "accountId": "12345678",
+  "locationId": "98765432",
+  "accountName": "My Business",
+  "locationName": "Downtown Store"
+}
+```
+
+Without `accessToken`, `refreshToken`, and `expiresAt`, the entire Google integration is dead — no reviews can be fetched, no replies can be posted.
+
+---
+
+## PROBLEM 2 — There is no way to trigger review ingestion
+
+### Where it is
+
+`src/app/api/jobs/ingest/route.ts` exists and the code is correct, but nothing ever calls it.
+
+### What is wrong
+
+The ingest job endpoint requires a `Bearer` token matching the `CRON_SECRET` environment variable:
+
+```ts
+const authHeader = request.headers.get("authorization");
+if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+```
+
+But:
+
+1. There is no Vercel cron configuration file (`vercel.json` with a `crons` array)
+2. There is no `CRON_SECRET` in `env.example`
+3. There is no "Sync Reviews" or "Import Reviews" button anywhere in the UI
+4. The Settings page does not trigger ingestion after connecting Google
+
+This means even if Problem 1 is fixed and the tokens are saved correctly, reviews will never appear because nothing ever calls the endpoint that fetches them from Google.
+
+### How to fix it
+
+Implement BOTH of these:
+
+**A) Add a "Sync Reviews" button to the inbox page.**
+
+In `src/app/inbox/page.tsx`, add a button next to the existing "Refresh" button. When clicked, it should call a new API endpoint (see below) that triggers ingestion for the current user's locations only. This gives the user immediate feedback after connecting Google.
+
+**B) Create a new user-facing sync endpoint.**
+
+Create `src/app/api/reviews/sync/route.ts`. This endpoint does NOT need `CRON_SECRET` — it uses the normal session auth. It should:
+
+1. Get the session user
+2. Find all the user's locations that have `platformAccounts.google` with a valid config
+3. For each location, call the Google adapter's `readReviews()` with the stored config
+4. Upsert each review into the database (same logic as the ingest job)
+5. Return a summary: `{ synced: 5, errors: 0 }`
+
+Here is the full implementation:
+
+```ts
+// src/app/api/reviews/sync/route.ts
+export const runtime = "nodejs";
+
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getAdapter, PlatformConfig } from "@/lib/platforms";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // Get all locations belonging to this user's businesses
+    const locations = await prisma.location.findMany({
+      where: {
+        business: { ownerId: userId },
+        platformAccounts: { not: null },
+      },
+      include: { business: true },
+    });
+
+    let totalSynced = 0;
+    let totalErrors = 0;
+
+    for (const location of locations) {
+      const platformAccounts = (location.platformAccounts as Record<string, PlatformConfig>) || {};
+
+      for (const [platform, config] of Object.entries(platformAccounts)) {
+        if (!config || typeof config !== "object") continue;
+
+        try {
+          const adapter = getAdapter(platform.toUpperCase());
+
+          // Attach the Prisma location ID so token refresh can persist
+          const configWithLocationId = {
+            ...config,
+            prismaLocationId: location.id,
+          };
+
+          if (!adapter.isConnected(configWithLocationId)) {
+            continue;
+          }
+
+          const reviews = await adapter.readReviews(location.id, configWithLocationId);
+
+          for (const reviewData of reviews) {
+            try {
+              const existing = await prisma.review.findUnique({
+                where: { platformId: reviewData.platformId },
+              });
+
+              if (existing) {
+                await prisma.review.update({
+                  where: { platformId: reviewData.platformId },
+                  data: {
+                    stars: reviewData.stars,
+                    text: reviewData.text,
+                    authorName: reviewData.authorName,
+                    authorAvatar: reviewData.authorAvatar,
+                    url: reviewData.url,
+                    updatedAt: new Date(),
+                  },
+                });
+              } else {
+                await prisma.review.create({
+                  data: {
+                    locationId: location.id,
+                    platform: platform.toUpperCase() as "GOOGLE" | "YELP" | "FACEBOOK" | "TRIPADVISOR",
+                    platformId: reviewData.platformId,
+                    stars: reviewData.stars,
+                    text: reviewData.text,
+                    authorName: reviewData.authorName,
+                    authorAvatar: reviewData.authorAvatar,
+                    url: reviewData.url,
+                    createdAt: reviewData.createdAt,
+                    language: "en",
+                  },
+                });
+                totalSynced++;
+              }
+            } catch (err) {
+              console.error(`Error processing review ${reviewData.platformId}:`, err);
+              totalErrors++;
+            }
+          }
+        } catch (err) {
+          console.error(`Error syncing platform ${platform} for location ${location.id}:`, err);
+          totalErrors++;
+        }
+      }
+    }
+
+    return NextResponse.json({ synced: totalSynced, errors: totalErrors });
+  } catch (error) {
+    console.error("Error in review sync:", error);
+    return NextResponse.json({ error: "Sync failed" }, { status: 500 });
+  }
+}
+```
+
+Then in `src/app/inbox/page.tsx`, add a "Sync Reviews" button:
+
+```tsx
+const syncReviews = async () => {
+  try {
+    setSyncing(true);
+    const response = await fetch("/api/reviews/sync", { method: "POST" });
+    const data = await response.json();
+    if (response.ok) {
+      toast.success(`Synced ${data.synced} new reviews`);
+      fetchReviews(); // Refresh the list
+    } else {
+      toast.error(data.error || "Sync failed");
+    }
+  } catch {
+    toast.error("Failed to sync reviews");
+  } finally {
+    setSyncing(false);
+  }
+};
+```
+
+Add a `syncing` state variable and render the button next to the existing Refresh button.
+
+**C) Also add the middleware matcher for the new route.**
+
+The middleware in `src/middleware.ts` protects API routes via pattern matching. The new `/api/reviews/sync` route is already covered by the existing matcher pattern `"/api/reviews/:path*"`, so no middleware change is needed. But double-check this after creating the file.
+
+**D) Also auto-trigger a sync after connecting Google.**
+
+In the Settings page, after `pickGoogleLocation()` successfully saves the connection, call the sync endpoint:
+
+```ts
+// After the toast.success("Google Business Profile connected") line:
+try {
+  await fetch("/api/reviews/sync", { method: "POST" });
+} catch {
+  // Non-critical — user can sync manually later
+}
+await fetchSettings();
+```
+
+This gives the user immediate results after connecting their Google Business Profile.
+
+---
+
+## PROBLEM 3 — The ingest job does not attach `prismaLocationId` to the config
+
+### Where it is
+
+`src/app/api/jobs/ingest/route.ts`, line where it calls `adapter.readReviews()`.
+
+### What is wrong
+
+The ingest job iterates locations and calls:
+
+```ts
+const reviews = await adapter.readReviews(location.id, config);
+```
+
+But `config` is the raw platform config from `platformAccounts` (e.g., `{ accessToken, refreshToken, accountId, locationId, expiresAt }`). It does NOT include `prismaLocationId`.
+
+The `GoogleAdapter.readReviews()` method passes `prismaLocationId` to `refreshAndPersistGoogleToken()` to save refreshed tokens back to the database. Without it:
+
+```ts
+if (config.prismaLocationId) {
+  // This code never runs because prismaLocationId is undefined
+  // So refreshed tokens are NOT persisted
+}
+```
+
+This means if the ingest cron job runs and the Google access token has expired, it will refresh the token for the current request but NOT save it. The next cron run will have to refresh again. If Google rate-limits the refresh calls, ingestion breaks.
+
+### How to fix it
+
+In `src/app/api/jobs/ingest/route.ts`, when calling the adapter, add `prismaLocationId`:
+
+Change:
+```ts
+const reviews = await adapter.readReviews(location.id, config);
+```
+
+To:
+```ts
+const configWithLocationId = {
+  ...config,
+  prismaLocationId: location.id,
+};
+const reviews = await adapter.readReviews(location.id, configWithLocationId);
+```
+
+This is a one-line change but it's important for long-term reliability.
+
+---
+
+## PROBLEM 4 — The `disconnectGoogle()` function only disconnects the first location
+
+### Where it is
+
+`src/app/settings/page.tsx`, in the `disconnectGoogle()` function.
+
+### What is wrong
+
+```ts
+const disconnectGoogle = async () => {
+  if (!selectedBusiness) return;
+  const targetLocation = selectedBusiness.locations[0]; // <-- always first location
+  // ...
+};
+```
+
+It always disconnects the first location, ignoring `selectedConnectLocationId`. If the user connected Google to their second or third location, clicking "Disconnect" would try to disconnect the first location (which might not even have Google connected), and the actually-connected location would remain unchanged.
+
+### How to fix it
+
+Use `selectedConnectLocationId` instead of hardcoding `locations[0]`:
+
+```ts
+const disconnectGoogle = async () => {
+  if (!selectedBusiness) return;
+  const targetLocation = selectedBusiness.locations.find(
+    (l) => l.id === selectedConnectLocationId
+  ) || selectedBusiness.locations[0];
+  if (!targetLocation) return;
+  // ... rest stays the same
+};
+```
+
+Also update `getGoogleConnectionState()` to check the selected location, not always the first one:
+
+```ts
+const getGoogleConnectionState = () => {
+  if (!selectedBusiness) return null;
+  const loc = selectedBusiness.locations.find(
+    (l) => l.id === selectedConnectLocationId
+  ) || selectedBusiness.locations[0];
+  if (!loc?.platformAccounts) return null;
+  const accounts = loc.platformAccounts as Record<string, any>;
+  return accounts.google || null;
+};
+```
+
+---
+
+## PROBLEM 5 — No empty-state guidance when reviews are empty after sync
+
+### Where it is
+
+`src/app/inbox/page.tsx` — the reviews list section.
+
+### What is wrong
+
+When the user has a Business and Location but zero reviews (which is the normal state after first connecting Google and before reviews are synced, or if the Google API returns no reviews), the inbox just shows "Reviews (0)" with an empty list. There is no guidance telling the user what to do next.
+
+Similarly, the analytics page shows "No Data Available" with a generic message that doesn't help the user understand they need to connect Google and sync first.
+
+### How to fix it
+
+In the inbox page, after the reviews list renders with 0 items, show a helpful empty state:
+
+```tsx
+{reviews.length === 0 && !loading && (
+  <div className="text-center py-8">
+    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+    <h3 className="text-lg font-medium text-gray-900 mb-2">No reviews yet</h3>
+    <p className="text-gray-600 mb-4">
+      Connect your Google Business Profile in Settings, then click "Sync Reviews" to import your reviews.
+    </p>
+    <div className="flex justify-center space-x-2">
+      <Button variant="outline" onClick={() => router.push("/settings")}>
+        Go to Settings
+      </Button>
+      <Button onClick={syncReviews} disabled={syncing}>
+        {syncing ? "Syncing..." : "Sync Reviews"}
+      </Button>
+    </div>
+  </div>
+)}
+```
+
+Add `import { useRouter } from "next/navigation"` and `const router = useRouter()` if not already present.
+
+---
+
+## Summary: what to change in each file
+
+| File | What to do |
+|------|------------|
+| **NEW: `src/app/api/integrations/google/connect/route.ts`** | Create this endpoint. It receives `locationId`, `googleAccountId`, `googleLocationId`, `accountName`, `locationName`. It reads the user's OAuth tokens from the Account table, builds the full config with `accessToken`/`refreshToken`/`expiresAt`, and saves it to `platformAccounts.google` on the Location row. |
+| **NEW: `src/app/api/reviews/sync/route.ts`** | Create this endpoint. It reads the session user's locations, calls the Google adapter for each connected one, and upserts reviews into the database. Returns `{ synced, errors }`. Full implementation is provided above. |
+| **`src/app/settings/page.tsx`** | (1) Change `pickGoogleLocation()` to call the new `POST /api/integrations/google/connect` endpoint instead of directly writing to settings. (2) After successful connect, auto-trigger `POST /api/reviews/sync`. (3) Fix `disconnectGoogle()` and `getGoogleConnectionState()` to use `selectedConnectLocationId` instead of always `locations[0]`. |
+| **`src/app/inbox/page.tsx`** | (1) Add a "Sync Reviews" button next to the Refresh button. (2) Add a `syncReviews()` function that calls `POST /api/reviews/sync`. (3) Add a helpful empty state when reviews array is empty. |
+| **`src/app/api/jobs/ingest/route.ts`** | Add `prismaLocationId: location.id` to the config object before passing it to `adapter.readReviews()`. |
+
+---
+
+## Testing checklist after implementing
+
+1. **Sign in with Google.** Verify a Business + Location exist (the onboarding flow already works).
+2. **Go to Settings > Integrations.** Click "Connect" for Google. Verify accounts load. Pick an account. Verify locations load. Pick a location.
+3. **After connecting, check the database.** Open the `locations` table and look at the `platformAccounts` column. Verify the `google` object contains ALL of these fields: `accessToken`, `refreshToken`, `expiresAt`, `accountId`, `locationId`, `accountName`, `locationName`. **If `accessToken` is missing, Problem 1 is not fixed.**
+4. **After connecting, check if auto-sync ran.** Go to the Inbox. If reviews exist in your Google Business Profile, they should already appear. If not, click "Sync Reviews."
+5. **Click "Sync Reviews" manually.** Verify the toast shows "Synced X new reviews." Verify reviews appear in the list.
+6. **Go to Analytics.** Verify the dashboard shows data (KPIs, charts) based on the synced reviews.
+7. **Disconnect Google.** Go to Settings > Integrations, click "Disconnect." Verify the `platformAccounts.google` field is removed from the database. Verify the UI shows "Not connected."
+8. **If the Google API returns a 403 or 401 error during sync**, that is a Google Cloud project configuration issue, not a code bug. The user needs to enable the Google My Business API in their Google Cloud Console and add their email as a test user in the OAuth consent screen. The code should surface this error clearly in the toast message so the user knows what to do.

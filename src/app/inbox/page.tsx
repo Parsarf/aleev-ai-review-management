@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,9 +69,11 @@ interface Filters {
 
 export default function InboxPage() {
   useSession();
+  const router = useRouter();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [generatingReply, setGeneratingReply] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
   const [filters, setFilters] = useState<Filters>({
@@ -172,6 +175,28 @@ export default function InboxPage() {
       toast.error("Failed to fetch reviews");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncReviews = async () => {
+    try {
+      setSyncing(true);
+      const response = await fetch("/api/reviews/sync", { method: "POST" });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(
+          data.synced > 0
+            ? `Synced ${data.synced} new review${data.synced !== 1 ? "s" : ""}`
+            : "Already up to date — no new reviews found",
+        );
+        fetchReviews();
+      } else {
+        toast.error(data.error || "Sync failed");
+      }
+    } catch {
+      toast.error("Failed to sync reviews");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -364,6 +389,14 @@ export default function InboxPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Review Inbox</h1>
         <div className="flex items-center space-x-2">
+          <Button
+            onClick={syncReviews}
+            variant="outline"
+            size="sm"
+            disabled={syncing}
+          >
+            {syncing ? "Syncing..." : "Sync Reviews"}
+          </Button>
           <Button onClick={fetchReviews} variant="outline" size="sm">
             Refresh
           </Button>
@@ -480,6 +513,33 @@ export default function InboxPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-96 overflow-y-auto">
+                {!loading && reviews.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <p className="text-gray-500 mb-2 font-medium">
+                      No reviews yet
+                    </p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Connect Google Business Profile in Settings, then click
+                      &ldquo;Sync Reviews&rdquo; to pull in your latest reviews.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => router.push("/settings")}
+                      >
+                        Go to Settings
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={syncReviews}
+                        disabled={syncing}
+                      >
+                        {syncing ? "Syncing..." : "Sync Now"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {reviews.map((review) => (
                   <div
                     key={review.id}

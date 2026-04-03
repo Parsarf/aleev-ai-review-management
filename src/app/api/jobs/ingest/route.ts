@@ -47,8 +47,14 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
+            // Attach prismaLocationId so refreshed tokens are persisted to DB
+            const configWithLocationId = {
+              ...config,
+              prismaLocationId: location.id,
+            };
+
             // Fetch reviews from platform
-            const reviews = await adapter.readReviews(location.id, config);
+            const reviews = await adapter.readReviews(location.id, configWithLocationId);
 
             for (const reviewData of reviews) {
               try {
